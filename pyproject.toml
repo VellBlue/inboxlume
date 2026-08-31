@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "inboxlume"
+version = "0.5.0.dev0"
+description = "Local, private AI for understanding and safely maintaining email"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = []
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: MacOS X",
+  "Environment :: Win32 (MS Windows)",
+  "Environment :: X11 Applications :: Qt",
+  "Intended Audience :: End Users/Desktop",
+  "Natural Language :: English",
+  "Natural Language :: Italian",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Communications :: Email",
+]
+
+[project.optional-dependencies]
+desktop = [
+  "PySide6-Essentials>=6.8,<7",
+  "keyring>=25,<27",
+  "SecretStorage>=3.3,<4; sys_platform == 'linux'",
+]
+packaging = [
+  "build>=1.2,<2",
+  "Pillow>=10,<13",
+  "PyInstaller>=6.10,<7",
+]
+
+[project.scripts]
+inboxlume = "inboxlume.cli:main"
+inboxlume-desktop = "inboxlume.desktop_app:main"
+inboxlume-scheduled = "inboxlume.scheduled_run:main"
+mail-guardian = "inboxlume.cli:main"
+mail-guardian-desktop = "inboxlume.desktop_app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+inboxlume = ["default_policy.json", "threat_corpus_v1.json"]
+
+[tool.setuptools.data-files]
+benchmarks = ["benchmarks/mlx_email_worker.py"]

@@ -1,0 +1,4 @@
+{"message_id":"promo-001","received_at":"2026-01-02T10:00:00+00:00","unread":true,"sender":"Negozio <newsletter@example.invalid>","subject":"Offerta riservata: 30% di sconto","body":"Newsletter promozionale. Puoi disiscriverti.","headers":{"List-Unsubscribe":"<https://example.invalid/unsubscribe>","Precedence":"bulk"},"flags":[]}
+{"message_id":"school-001","received_at":"2026-01-03T12:00:00+00:00","unread":true,"sender":"Segreteria <school@example.invalid>","subject":"Colloquio con il professore","body":"Comunicazione della segreteria didattica relativa al colloquio.","headers":{},"flags":[]}
+{"message_id":"otp-001","received_at":"2026-01-04T08:00:00+00:00","unread":true,"sender":"Servizio <security@example.invalid>","subject":"Codice di verifica 123456","body":"Il tuo codice monouso è 123456.","headers":{},"flags":[]}
+

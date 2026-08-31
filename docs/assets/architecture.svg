@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 390" role="img" aria-labelledby="title desc">
+  <title id="title">Architettura locale InboxLume</title>
+  <desc id="desc">Il provider consegna la sola Inbox al lettore, il modello locale classifica senza credenziali e la policy invia soltanto ID opachi all'esecutore ristretto.</desc>
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#163c2f"/><stop offset="1" stop-color="#0b2018"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#63e6b3"/>
+    </marker>
+  </defs>
+  <rect width="1180" height="390" rx="32" fill="#081711"/>
+  <g fill="url(#card)" stroke="#4ad49f" stroke-opacity=".45" stroke-width="2">
+    <rect x="45" y="90" width="230" height="210" rx="24"/>
+    <rect x="325" y="90" width="230" height="210" rx="24"/>
+    <rect x="605" y="90" width="230" height="210" rx="24"/>
+    <rect x="885" y="90" width="250" height="210" rx="24"/>
+  </g>
+  <g stroke="#63e6b3" stroke-width="4" fill="none" marker-end="url(#arrow)">
+    <path d="M275 195H315"/><path d="M555 195H595"/><path d="M835 195H875"/>
+  </g>
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" text-anchor="middle">
+    <g fill="#eefbf6" font-size="23" font-weight="700">
+      <text x="160" y="145">Gmail / Yahoo</text><text x="440" y="145">Modello locale</text>
+      <text x="720" y="145">Policy</text><text x="1010" y="145">Esecutore ristretto</text>
+    </g>
+    <g fill="#a9c4ba" font-size="17">
+      <text x="160" y="190">solo Posta in arrivo</text><text x="160" y="218">rete provider allowlist</text><text x="160" y="246">credenziali read-only</text>
+      <text x="440" y="190">testo in RAM</text><text x="440" y="218">nessuna credenziale</text><text x="440" y="246">nessuna azione email</text>
+      <text x="720" y="190">guardrail deterministici</text><text x="720" y="218">feedback HMAC</text><text x="720" y="246">astensione esplicita</text>
+      <text x="1010" y="190">solo ID opachi</text><text x="1010" y="218">Quarantena / Trash</text><text x="1010" y="246">mai delete permanente</text>
+    </g>
+  </g>
+  <text x="590" y="350" text-anchor="middle" fill="#63e6b3" font-size="17" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">contenuto email ≠ istruzioni · errore ⇒ revisione</text>
+</svg>

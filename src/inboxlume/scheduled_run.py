@@ -1,0 +1,188 @@
+from __future__ import annotations
+
+import argparse
+import io
+import json
+import sys
+from argparse import Namespace
+from pathlib import Path
+from typing import Any, Callable, Mapping, TextIO
+
+from .credential_store import SystemCredentialStore
+from .desktop_worker import execute_scan
+from .diagnostics import (
+    append_diagnostic,
+    diagnostic_for_terminal_status,
+    diagnostic_path,
+)
+from .local_models import model_spec, scan_profile_for_model
+from .operation_lock import (
+    AccountOperationLock,
+    account_operation_lock_path,
+)
+from .runtime import (
+    calibration_answer_counts,
+    default_runtime_config_path,
+    state_database_path,
+)
+from .settings import (
+    RECOMMENDED_INITIAL_DONT_KEEP_ANSWERS,
+    RECOMMENDED_INITIAL_KEEP_ANSWERS,
+    RECOMMENDED_INITIAL_QUIZ_ANSWERS,
+    SettingsStore,
+)
+
+
+ScheduledRunLock = AccountOperationLock
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="inboxlume-scheduled",
+        description="Esecuzione one-shot sicura creata dalla pianificazione nativa.",
+    )
+    parser.add_argument("--account", required=True)
+    parser.add_argument("--settings", type=Path, required=True)
+    return parser
+
+
+def run_scheduled_scan(
+    account_id: str,
+    settings_path: Path,
+    output_stream: TextIO,
+    *,
+    executor: Callable[..., dict[str, Any]] = execute_scan,
+    calibration_reader: Callable[[Path, str], Mapping[str, int]] | None = None,
+) -> dict[str, Any]:
+    if not settings_path.is_absolute():
+        raise ValueError("il percorso impostazioni pianificate deve essere assoluto")
+    store = SettingsStore(settings_path)
+    settings = store.load()
+    account = settings.account(account_id)
+    if not account.schedule.enabled:
+        raise RuntimeError("la pianificazione di questo account è disattivata")
+
+    project_root = Path(__file__).resolve().parents[2]
+    config_path = default_runtime_config_path(project_root)
+    state_db = state_database_path(settings_path, project_root, account)
+    if calibration_reader is None:
+        credential_store = SystemCredentialStore()
+
+        def calibration_reader(path: Path, selected_account: str) -> Mapping[str, int]:
+            return calibration_answer_counts(
+                path,
+                selected_account,
+                credential_store,
+            )
+
+    calibration = calibration_reader(state_db, account.account_id)
+    total = sum(calibration.values())
+    if not (
+        total >= RECOMMENDED_INITIAL_QUIZ_ANSWERS
+        and calibration.get("keep", 0) >= RECOMMENDED_INITIAL_KEEP_ANSWERS
+        and calibration.get("dont_keep", 0)
+        >= RECOMMENDED_INITIAL_DONT_KEEP_ANSWERS
+    ):
+        raise RuntimeError(
+            "un controllo pianificato richiede la calibrazione iniziale completa"
+        )
+    lock_path = account_operation_lock_path(state_db, account.account_id)
+    selected_model = model_spec(account.model_profile)
+    arguments = Namespace(
+        command="scan",
+        config=config_path,
+        account=account.account_id,
+        provider=account.provider.value,
+        state_db=state_db,
+        unread_days=account.unread_age_days,
+        otp_days=account.read_one_time_code_age_days,
+        confirm_read_bodies=True,
+        backend=selected_model.backend,
+        ollama_model=selected_model.ollama_model,
+        limit=account.batch_size,
+        search_limit=0,
+        scan_order=account.scan_order.value,
+        destination=account.destination.value,
+        apply_safe_actions=True,
+        enforce_safety_governor=account.safety_governor_enforced,
+        skip_threat_protection=not account.threat_protection_enabled,
+        threat_semantic_mode=account.threat_semantic_mode.value,
+        skip_lumegraph=not account.lumegraph_enabled,
+        skip_obsolescence_proof=not account.obsolescence_proof_enabled,
+        trigger="scheduled",
+        operation_lock_held=True,
+    )
+    with ScheduledRunLock(lock_path):
+        # Per-message progress belongs in the interactive GUI, not journald or
+        # scheduled-task logs. The persisted diagnostic remains aggregate-only.
+        summary = executor(arguments, io.StringIO())
+    automatic = summary.get("automatic_quarantine")
+    actions = automatic if isinstance(automatic, Mapping) else {}
+    output_stream.write(
+        json.dumps(
+            {
+                "type": "scheduled_run_complete",
+                "processed": int(summary.get("newly_processed", 0)),
+                "applied": int(actions.get("applied", 0)),
+                "changes_mailbox": bool(summary.get("changes_mailbox", False)),
+                "stored_plaintext": False,
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        + "\n"
+    )
+    output_stream.flush()
+    return summary
+
+
+def _write_error(stream: TextIO, code: str) -> None:
+    stream.write(
+        json.dumps(
+            {
+                "type": "scheduled_run_error",
+                "code": code,
+                "message": "controllo pianificato non completato; apri InboxLume",
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        + "\n"
+    )
+    stream.flush()
+
+
+def _record_scheduled_failure(account_id: str, settings_path: Path) -> None:
+    try:
+        settings = SettingsStore(settings_path).load()
+        account = settings.account(account_id)
+        project_root = Path(__file__).resolve().parents[2]
+        state_db = state_database_path(settings_path, project_root, account)
+        append_diagnostic(
+            diagnostic_path(state_db),
+            diagnostic_for_terminal_status(
+                status="failed",
+                trigger="scheduled",
+                provider=account.provider.value,
+                destination=account.destination.value,
+                scan_profile=scan_profile_for_model(account.model_profile),
+                governor_requested=account.safety_governor_enforced,
+            ),
+        )
+    except Exception:  # noqa: BLE001 - best-effort aggregate failure record
+        pass
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        run_scheduled_scan(args.account, args.settings, sys.stdout)
+    except Exception:  # noqa: BLE001 - final privacy-safe scheduler boundary
+        _record_scheduled_failure(args.account, args.settings)
+        _write_error(sys.stdout, "scheduled_run_failed")
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

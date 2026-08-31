@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.REPLACE_OWNER.InboxLume</id>
+  <name>InboxLume</name>
+  <summary>Private AI for a cleaner inbox</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>REPLACE_AFTER_LICENSE_DECISION</project_license>
+  <description>
+    <p>
+      InboxLume classifies Gmail and Yahoo Inbox messages with a local model and
+      applies deterministic, reversible safety rules.
+    </p>
+  </description>
+  <launchable type="desktop-id">inboxlume.desktop</launchable>
+  <content_rating type="oars-1.1" />
+</component>

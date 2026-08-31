@@ -1,0 +1,29 @@
+#define MyAppName "InboxLume"
+#define MyAppVersion "REPLACE_STABLE_VERSION"
+#define MyAppPublisher "REPLACE_PUBLISHER"
+#define MyAppExeName "InboxLume.exe"
+
+[Setup]
+AppId={{REPLACE_WITH_STABLE_GUID}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
+OutputBaseFilename=InboxLume-Setup-{#MyAppVersion}
+Compression=lzma2
+SolidCompression=yes
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+PrivilegesRequired=lowest
+UninstallDisplayIcon={app}\{#MyAppExeName}
+WizardStyle=modern
+
+[Files]
+Source: "..\..\release\staging\windows\InboxLume\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Icons]
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+
+[Run]
+Filename: "{app}\{#MyAppExeName}"; Description: "Avvia InboxLume"; Flags: nowait postinstall skipifsilent

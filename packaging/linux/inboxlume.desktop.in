@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=InboxLume
+Comment=Private AI for a cleaner inbox
+Exec=inboxlume-desktop
+Icon=inboxlume
+Terminal=false
+Categories=Office;Email;
+Keywords=email;privacy;local AI;Gmail;Yahoo;
+StartupNotify=true

@@ -1,0 +1,43 @@
+name: Segnalazione bug
+description: Segnala un comportamento riproducibile senza condividere dati email.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Non allegare email reali, credenziali, token, database, log completi o screenshot contenenti dati personali. Usa esclusivamente esempi sintetici.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Sistema operativo
+      options: [macOS, Windows, Linux]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versione InboxLume
+      placeholder: "es. 0.5.0-dev"
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Comportamento osservato
+      description: Usa nomi e contenuti fittizi.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento atteso
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Conferma privacy
+      options:
+        - label: Ho rimosso dati email, credenziali e percorsi personali.
+          required: true

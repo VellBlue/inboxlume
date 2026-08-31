@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="InboxLume uses local AI models and deterministic guardrails to understand and maintain Gmail and Yahoo without sending email content to cloud AI services.">
+  <meta name="color-scheme" content="dark">
+  <title>InboxLume — Private AI for a cleaner inbox</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/site.css?v=20260830">
+</head>
+<body>
+  <div class="preflight">Local preview of a project in development — no public release is available yet.</div>
+  <header class="wrap">
+    <nav aria-label="Main navigation">
+      <a class="brand" href="#top"><span class="brand-mark">IL</span><strong>InboxLume</strong></a>
+      <div class="nav-links">
+        <a href="it/index.html" lang="it">Italiano</a>
+        <a href="#why">Why</a><a href="#architecture">Architecture</a>
+        <a href="#math">Risk</a><a href="#models">Models</a><a href="#status">Status</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <div class="wrap hero">
+      <div>
+        <div class="eyebrow">Private AI for a cleaner inbox</div>
+        <h1>Your mail.<br>Your AI.<br>On your device.</h1>
+        <p class="lead">InboxLume understands Inbox content with a local model, learns from private corrections, and acts only through narrow reversible guardrails.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#architecture">Explore the architecture</a>
+          <a class="button" href="ARTICLE.md">Read the technical article</a>
+        </div>
+      </div>
+      <aside class="hero-card" aria-label="Core boundaries">
+        <div class="signal"><span>Content sent to cloud AI</span><strong>Never</strong></div>
+        <div class="signal"><span>Resident model process</span><strong>No, one-shot</strong></div>
+        <div class="signal"><span>Sent mail or Drafts</span><strong>Out of scope</strong></div>
+        <div class="signal"><span>Permanent deletion</span><strong>Not implemented</strong></div>
+        <div class="signal"><span>Accounts</span><strong>Isolated by design</strong></div>
+      </aside>
+    </div>
+
+    <section id="why" class="wrap">
+      <div class="eyebrow">The problem</div>
+      <h2>A large archive should not require handing its memory to another service.</h2>
+      <p class="section-intro">Sender rules cannot understand why two messages from the same organisation may have opposite value. Cloud AI can interpret content, but introduces another party into the data path. InboxLume explores a third approach: local semantics, minimum authority, and abstention whenever evidence is insufficient.</p>
+      <div class="grid">
+        <article class="panel"><div class="number">01 · CONTEXT</div><h3>Judge the specific message</h3><p>Age, category, and sender are signals rather than verdicts. A promotion may matter; a legitimate notification may not.</p></article>
+        <article class="panel"><div class="number">02 · MEMORY</div><h3>Learn without building a corpus</h3><p>Quiz answers and behaviour become HMAC-derived fingerprints and minimised features. Sender, subject, and body are not stored in plaintext.</p></article>
+        <article class="panel"><div class="number">03 · CONTROL</div><h3>Prefer not to act</h3><p>Protected categories, conflicts, attachments, low confidence, or missing runtimes cause review. Quarantine remains the recommended path.</p></article>
+      </div>
+    </section>
+
+    <section id="architecture" class="wrap">
+      <div class="eyebrow">Architecture</div>
+      <h2>The model is not the component holding the keys.</h2>
+      <p class="section-intro">Reading, inference, decision, and execution are separate responsibilities. The model sees sanitised text in memory, but no credentials or mailbox methods. The executor receives only opaque IDs selected by policy.</p>
+      <div class="architecture panel"><img src="assets/architecture.svg" alt="Diagram of InboxLume's four separated components"></div>
+      <div class="grid">
+        <article class="panel"><h3>Inbox only</h3><p>Gmail uses Inbox labels and allowlisted transports; Yahoo selects only INBOX. SMTP, Sent, Drafts, and settings do not exist in the operational domain.</p></article>
+        <article class="panel"><h3>One-shot</h3><p>A quiz, scan, or schedule runs only when requested. A scan may use a bounded batch or continue until no eligible email remains; the model is unloaded afterwards.</p></article>
+        <article class="panel"><h3>Reversible</h3><p>Visible per-account Quarantine, a fresh check before Trash, and no API for permanent delete or empty-trash.</p></article>
+      </div>
+    </section>
+
+    <section class="wrap">
+      <div class="eyebrow">Local and cloud</div>
+      <h2>“Local” is a boundary to define, not a slogan.</h2>
+      <table class="comparison">
+        <thead><tr><th>Dimension</th><th>InboxLume</th><th>Typical cloud-AI approach</th></tr></thead>
+        <tbody>
+          <tr><td>Inference</td><td>On device, from an existing local cache</td><td>On provider infrastructure</td></tr>
+          <tr><td>Email content</td><td>Email provider → device; no external AI service</td><td>May be transferred to the AI service, depending on the product</td></tr>
+          <tr><td>Personalisation</td><td>Local state isolated per email account</td><td>Often attached to an account with the service</td></tr>
+          <tr><td>Resources</td><td>User RAM and compute, only during a run</td><td>Remote compute, network latency, and service availability</td></tr>
+          <tr><td>Inspectability</td><td>Code, policy, and audit can be inspected</td><td>Depends on provider transparency</td></tr>
+        </tbody>
+      </table>
+      <p class="fineprint">InboxLume must still communicate with Gmail or Yahoo to receive and organise mail. “Local” describes inference, preference learning, and private state after transfer from the selected provider; it does not mean that the provider no longer stores the email.</p>
+    </section>
+
+    <section id="math" class="wrap">
+      <div class="eyebrow">Risk calibration</div>
+      <h2>Forty answers are a starting point, not a certificate.</h2>
+      <p class="section-intro">Average accuracy can hide the expensive failure: moving mail that should have been kept. InboxLume measures false cleanup, coverage, and abstention. A small sample leaves substantial uncertainty even when no error is observed.</p>
+      <div class="formula">p<sub>upper</sub> = 1 − 0.05<sup>(1/n)</sup></div>
+      <p>With <em>n</em> independent cases and zero errors, this simple one-sided 95% upper bound is about 7.2% at 40 cases. Going below 1% takes approximately 299 comparable error-free cases. Real inboxes violate the clean assumptions: topics and interests change, so drift and rare families require more caution.</p>
+      <p class="fineprint">An LLM's confidence is not presented as a calibrated probability. The Safety Governor uses HMAC-linked local evidence: missing evidence leaves the ordinary filter unchanged, while concrete repeated errors restrict only the affected family. Ordinary Direct Trash remains independent under model, calibration, policy and confirmation safeguards. The Governor itself gains Trash authority only with a supported model and at least 299 conclusive, error-free reviews overall and in the family. Permanent deletion and emptying Trash are never authorised.</p>
+    </section>
+
+    <section id="models" class="wrap">
+      <div class="eyebrow">Local profiles</div>
+      <h2>Accessible on different hardware without pretending every model is equal.</h2>
+      <div class="grid">
+        <article class="panel"><div class="number">LIGHTWEIGHT · 12 GB</div><h3>Qwen 8B</h3><p>More accessible and faster. A 0.97 operational threshold and Quarantine only after greater confusion between legitimate advertising and spam.</p></article>
+        <article class="panel"><div class="number">BALANCED · 16 GB</div><h3>Gemma 12B</h3><p>An MLX compromise on Apple Silicon in the initial integration. A 0.95 threshold and Quarantine only while evidence remains limited.</p></article>
+        <article class="panel"><div class="number">RECOMMENDED · 24 GB</div><h3>Gemma 26B-A4B</h3><p>The current quality profile. Direct Trash is available only after calibration and confirmation, never by default.</p></article>
+      </div>
+      <table class="comparison">
+        <thead><tr><th>Preliminary observation</th><th>Qwen 8B</th><th>Gemma 12B</th><th>Gemma 26B-A4B</th></tr></thead>
+        <tbody><tr><td>Cold synthetic batch</td><td>≈ 5.4 s</td><td>≈ 8.7 s</td><td>≈ 9.7 s</td></tr><tr><td>Recorded peak</td><td>not measured</td><td>11.2 GB</td><td>14.7 GB</td></tr></tbody>
+      </table>
+      <p class="fineprint">Measurements from one environment, including load and unload for five synthetic messages. They are neither universal speed figures nor sufficient quality evidence for a release.</p>
+    </section>
+
+    <section class="wrap">
+      <div class="eyebrow">Interface</div>
+      <h2>Readable controls, compartmentalised accounts.</h2>
+      <p class="section-intro">Every account keeps an independent model, thresholds, quiz, destination, and schedule. The interface explains what is ready and why a capability is blocked, without loading a model merely to open the app. English is the default; Italian is a separately edited localisation. Both languages can appear together in the email being classified.</p>
+      <figure class="screenshot"><img src="assets/inboxlume-settings.png" alt="InboxLume interface with synthetic accounts and local settings"><figcaption class="fineprint">Generated with synthetic accounts and states; no real email data.</figcaption></figure>
+    </section>
+
+    <section id="status" class="wrap">
+      <div class="callout">
+        <div class="eyebrow">Project status</div>
+        <h2>Prepared, not published.</h2>
+        <p>The Gmail/Yahoo foundation, controlled model profiles, GUI, and scheduling exist. Packaging, CI, and this site are prepared locally, but the release gate remains closed until the agreed features, licence, security review, and verified packages are complete.</p>
+        <div class="status-list">
+          <div class="status-item">One-shot Inbox scans and reversible Quarantine</div>
+          <div class="status-item">Multiple Gmail/Yahoo accounts with isolated state</div>
+          <div class="status-item">Repository privacy audit and cross-platform CI prepared</div>
+          <div class="status-item">Personal Safety Governor: adaptive family restrictions and separate qualified Trash authority</div>
+          <div class="status-item">LumeGraph, operational Proof of Obsolescence, temporal drift, and versioned historical backtesting implemented locally</div>
+          <div class="status-item future">Counterfactual perturbations: future research</div>
+          <div class="status-item future">Personal phishing baseline and LumeReply: not implemented yet</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-grid">
+      <div><a class="brand" href="#top"><span class="brand-mark">IL</span><strong>InboxLume</strong></a></div>
+      <div class="privacy-note">No analytics, cookies, remote fonts, or third-party scripts. This is a sanitised local preview, not a release. InboxLume is intended to be free and open source; a licence must be selected before publication.</div>
+    </div>
+  </footer>
+</body>
+</html>

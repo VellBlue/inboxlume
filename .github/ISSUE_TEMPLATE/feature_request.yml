@@ -1,0 +1,33 @@
+name: Proposta funzionalità
+description: Proponi una funzione compatibile con il confine locale e Inbox-only.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema da risolvere
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Soluzione proposta
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Impatto su privacy e permessi
+      description: Spiega quali dati e capacità sarebbero necessari.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Confini
+      options:
+        - label: La proposta non richiede invio automatico o cancellazione permanente.
+          required: true
+        - label: La proposta non richiede di condividere dati email nella issue.
+          required: true
