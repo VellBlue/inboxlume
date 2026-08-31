@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import unittest
 from pathlib import Path
 
@@ -13,7 +14,11 @@ from inboxlume.process_launch import (
 
 class ProcessLaunchTests(unittest.TestCase):
     def test_source_launch_preserves_virtualenv_path_without_resolving(self) -> None:
-        executable = "/synthetic/venv/bin/python"
+        executable = (
+            r"C:\synthetic\venv\Scripts\python.exe"
+            if os.name == "nt"
+            else "/synthetic/venv/bin/python"
+        )
         launch = desktop_worker_launch(
             ["-m", "inboxlume.desktop_worker", "scan", "--account", "test"],
             executable=executable,

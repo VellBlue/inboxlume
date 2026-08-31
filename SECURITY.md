@@ -2,11 +2,11 @@
 
 ## Segnalare una vulnerabilità
 
-Quando il repository sarà pubblico, usare una **GitHub Security Advisory privata**
-invece di una issue pubblica. Non allegare email reali, token, database o log
-contenenti dati personali; costruire una riproduzione sintetica minima. Prima della
-pubblicazione non esiste ancora un canale esterno ufficiale e nessuna versione è
-dichiarata supportata.
+Usare **Report a vulnerability** nella scheda Security del repository per inviare
+una GitHub Security Advisory privata, invece di aprire una issue pubblica. Non
+allegare email reali, token, database o log contenenti dati personali; costruire
+una riproduzione sintetica minima. Il canale privato è attivo, ma nessuna versione
+dell'app è ancora dichiarata supportata.
 
 | Versione | Supporto di sicurezza |
 |---|---|

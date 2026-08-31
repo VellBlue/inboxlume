@@ -38,7 +38,7 @@ def request(
     return ScheduleRequest(
         "gmail_test",
         root / "settings.json",
-        Path("/usr/bin/python3"),
+        root / "python",
         ScheduleSettings(
             enabled=True,
             hour=4,
@@ -67,7 +67,7 @@ class NativeSchedulerTests(unittest.TestCase):
             self.assertEqual(
                 document["ProgramArguments"],
                 [
-                    "/usr/bin/python3",
+                    str(root / "python"),
                     "-m",
                     "inboxlume.scheduled_run",
                     "--account",

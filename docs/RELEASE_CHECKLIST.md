@@ -19,7 +19,7 @@ usa direttamente `main/docs`.
 - [x] approvare screenshot e benchmark esclusivamente sanificati;
 - [x] eseguire audit privacy su tutti i candidati al commit e sulla cronologia Git;
 - [x] riesaminare README, changelog, limiti e funzioni future;
-- [ ] attivare GitHub Security Advisories prima di accettare segnalazioni.
+- [x] attivare GitHub Security Advisories prima di accettare segnalazioni.
 
 ## Qualità multipiattaforma
 
