@@ -28,24 +28,6 @@ class YahooQuarantineOutcome(StrEnum):
 @dataclass(frozen=True, slots=True)
 class YahooQuarantineResult:
     outcome: YahooQuarantineOutcome
-    destination_uid_validity: str | None = None
-    destination_uid: str | None = None
-
-
-def _copyuid_mapping(data: object) -> tuple[str, str] | None:
-    """Read the UIDPLUS COPYUID mapping returned by MOVE, if supplied."""
-
-    if not isinstance(data, list):
-        return None
-    raw = b" ".join(item for item in data if isinstance(item, bytes))
-    match = re.search(
-        rb"COPYUID\s+([0-9]+)\s+([0-9]+)\s+([0-9]+)",
-        raw,
-        re.IGNORECASE,
-    )
-    if match is None:
-        return None
-    return match.group(1).decode("ascii"), match.group(3).decode("ascii")
 
 
 class YahooQuarantineExecutor:
@@ -140,15 +122,13 @@ class YahooQuarantineExecutor:
             or "important" in flags
         ):
             return YahooQuarantineResult(YahooQuarantineOutcome.SKIPPED_PROTECTED)
-        status, data = self._client.uid("MOVE", uid, YAHOO_QUARANTINE_FOLDER)
+        # UIDPLUS returns the destination UID in the tagged OK line, which
+        # imaplib.uid() discards, so the move reports no pointer.  Review
+        # relocates a moved proposal by its RFC Message-ID instead.
+        status, _ = self._client.uid("MOVE", uid, YAHOO_QUARANTINE_FOLDER)
         if status != "OK":
             raise YahooImapError("spostamento nella Quarantena Yahoo fallito")
-        mapping = _copyuid_mapping(data)
-        return YahooQuarantineResult(
-            YahooQuarantineOutcome.APPLIED,
-            None if mapping is None else mapping[0],
-            None if mapping is None else mapping[1],
-        )
+        return YahooQuarantineResult(YahooQuarantineOutcome.APPLIED)
 
     def close(self) -> None:
         if self._closed:

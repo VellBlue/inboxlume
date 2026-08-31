@@ -499,21 +499,6 @@ class PreferenceStore:
                 )
                 connection.execute(
                     """
-                    CREATE TABLE IF NOT EXISTS quarantine_location (
-                        account_id TEXT NOT NULL,
-                        message_hash TEXT NOT NULL,
-                        provider TEXT NOT NULL,
-                        scan_profile TEXT NOT NULL,
-                        folder TEXT NOT NULL,
-                        uid_validity TEXT NOT NULL,
-                        uid TEXT NOT NULL,
-                        located_at TEXT NOT NULL,
-                        PRIMARY KEY (account_id, message_hash, scan_profile)
-                    )
-                    """
-                )
-                connection.execute(
-                    """
                     CREATE TABLE IF NOT EXISTS quarantine_finalization (
                         account_id TEXT NOT NULL,
                         message_hash TEXT NOT NULL,
@@ -1412,100 +1397,6 @@ class PreferenceStore:
         if executed_at.tzinfo is None:
             raise ValueError("data quarantena pilot priva di fuso orario")
         return executed_at, str(row[1])
-
-    def record_quarantine_location(
-        self,
-        account_id: str,
-        provider: ProviderKind,
-        message_id: str,
-        scan_profile: str,
-        folder: str,
-        uid_validity: str,
-        uid: str,
-        located_at: datetime,
-    ) -> None:
-        """Store only an HMAC identity and destination UID for Yahoo review."""
-
-        if not scan_profile.strip() or len(scan_profile) > 100:
-            raise ValueError("scan_profile non valido")
-        if not folder or any(char in folder for char in "\r\n"):
-            raise ValueError("cartella quarantena non valida")
-        if not re.fullmatch(r"[1-9][0-9]{0,19}", uid_validity):
-            raise ValueError("UIDVALIDITY quarantena non valido")
-        if not re.fullmatch(r"[1-9][0-9]{0,19}", uid):
-            raise ValueError("UID quarantena non valido")
-        if located_at.tzinfo is None:
-            raise ValueError("located_at deve includere il fuso orario")
-        message_hash = self._hash(
-            account_id,
-            f"message:{provider.value}:{message_id}",
-        )
-        with closing(self._connect()) as connection:
-            with connection:
-                connection.execute(
-                    """
-                    INSERT INTO quarantine_location(
-                        account_id, message_hash, provider, scan_profile,
-                        folder, uid_validity, uid, located_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(account_id, message_hash, scan_profile) DO UPDATE SET
-                        folder = excluded.folder,
-                        uid_validity = excluded.uid_validity,
-                        uid = excluded.uid,
-                        located_at = excluded.located_at
-                    """,
-                    (
-                        account_id,
-                        message_hash,
-                        provider.value,
-                        scan_profile,
-                        folder,
-                        uid_validity,
-                        uid,
-                        located_at.isoformat(),
-                    ),
-                )
-
-    def quarantine_review_record_for_location(
-        self,
-        account_id: str,
-        provider: ProviderKind,
-        scan_profile: str,
-        folder: str,
-        uid_validity: str,
-        uid: str,
-    ) -> tuple[str, str] | None:
-        """Resolve a Yahoo quarantine UID to its aggregate shadow proposal."""
-
-        with closing(self._connect()) as connection:
-            row = connection.execute(
-                """
-                SELECT ss.category, ss.suggested_action
-                FROM quarantine_location AS ql
-                JOIN shadow_scan AS ss
-                  ON ss.account_id = ql.account_id
-                 AND ss.message_hash = ql.message_hash
-                 AND ss.scan_profile = ql.scan_profile
-                WHERE ql.account_id = ? AND ql.provider = ?
-                  AND ql.scan_profile = ? AND ql.folder = ?
-                  AND ql.uid_validity = ? AND ql.uid = ?
-                  AND ss.suggested_action = 'quarantine'
-                  AND NOT EXISTS (
-                      SELECT 1 FROM quiz_answer AS qa
-                      WHERE qa.account_id = ql.account_id
-                        AND qa.message_hash = ql.message_hash
-                  )
-                """,
-                (
-                    account_id,
-                    provider.value,
-                    scan_profile,
-                    folder,
-                    uid_validity,
-                    uid,
-                ),
-            ).fetchone()
-        return None if row is None else (str(row[0]), str(row[1]))
 
     def has_quarantine_finalization_id(
         self,
@@ -3121,6 +3012,11 @@ class PreferenceStore:
                  AND ss.message_hash = pi.message_hash
                 WHERE pi.account_id = ? AND pi.provider = ?
                   AND pi.identity_hash = ? AND ss.scan_profile = ?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM quiz_answer AS qa
+                      WHERE qa.account_id = pi.account_id
+                        AND qa.message_hash = pi.message_hash
+                  )
                 """,
                 (account_id, provider.value, identity_hash, scan_profile),
             ).fetchone()

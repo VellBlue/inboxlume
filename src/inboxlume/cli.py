@@ -1807,31 +1807,6 @@ def yahoo_shadow_run(
                     now,
                     result.outcome.value,
                 )
-                # Yahoo MOVE returns a UIDPLUS COPYUID mapping when the
-                # server supports it.  Keep that destination-only pointer so
-                # the review action can read the reversible folder after the
-                # message leaves Inbox, without persisting plaintext or
-                # credentials.  Direct Trash has no such review path.
-                destination_uid_validity = getattr(
-                    result, "destination_uid_validity", None
-                )
-                destination_uid = getattr(result, "destination_uid", None)
-                if (
-                    not direct_to_trash
-                    and result.outcome.value == "applied"
-                    and isinstance(destination_uid_validity, str)
-                    and isinstance(destination_uid, str)
-                ):
-                    preferences.record_quarantine_location(
-                        account_id,
-                        policy.provider,
-                        message_id,
-                        scan_profile,
-                        YAHOO_QUARANTINE_FOLDER,
-                        destination_uid_validity,
-                        destination_uid,
-                        now,
-                    )
         finally:
             executor.close()
 

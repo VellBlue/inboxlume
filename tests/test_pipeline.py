@@ -1244,6 +1244,58 @@ class DryRunPipelineTests(unittest.TestCase):
         # The identity is evidence, not text: it must never be stored readable.
         self.assertNotIn(identity.encode(), database_bytes)
 
+    def test_a_proposal_already_answered_is_not_asked_again(self) -> None:
+        policy = load_policies(ROOT / "config/accounts.example.json")[
+            "yahoo_personale"
+        ]
+        profile = "gemma26-policy-v2"
+        identity = "<already-answered@example.invalid>"
+        in_inbox = make_message(
+            account_id=policy.account_id,
+            provider=ProviderKind.YAHOO,
+            message_id="777:42",
+            headers={"Message-ID": identity},
+            subject="Promozione",
+            body_text="Testo promozionale.",
+        )
+        after_move = make_message(
+            account_id=policy.account_id,
+            provider=ProviderKind.YAHOO,
+            message_id="999:9",
+            headers={"Message-ID": identity},
+            subject="Promozione",
+            body_text="Testo promozionale.",
+        )
+        classification = Classification(
+            EmailCategory.ADVERTISING, 0.96, ("test",), "test"
+        )
+        quarantine = PolicyDecision(PolicyAction.QUARANTINE, ("ordinary_cleanup",))
+        with tempfile.TemporaryDirectory() as directory:
+            store = PreferenceStore(Path(directory) / "answered.sqlite3", b"q" * 32)
+            store.record_shadow_scan(
+                in_inbox,
+                classification,
+                quarantine,
+                profile,
+                NOW,
+                policy_safety_fingerprint(policy),
+            )
+            store.record_quiz_answer(in_inbox, classification, "keep", None)
+
+            candidates = prepare_quarantine_shadow_review(
+                policy,
+                FakeQuarantineMailbox([after_move]),
+                store,
+                NOW,
+                5,
+                10,
+                profile,
+            )
+
+        # The answer was recorded against the Inbox identity, so relocating by
+        # Message-ID must carry that answer across the move as well.
+        self.assertEqual(candidates, [])
+
     def test_a_message_never_proposed_stays_out_of_the_review(self) -> None:
         policy = load_policies(ROOT / "config/accounts.example.json")[
             "yahoo_personale"

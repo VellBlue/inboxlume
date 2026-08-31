@@ -506,28 +506,14 @@ def prepare_quarantine_shadow_review(
             scan_profile,
         )
         if record is None:
-            try:
-                uid_validity, uid = message.message_id.split(":", 1)
-            except ValueError:
-                uid_validity, uid = "", ""
-            mapped = store.quarantine_review_record_for_location(
+            # A move gives the message a new UID, so the scan's identity no
+            # longer matches. The RFC Message-ID survives it.
+            mapped = store.shadow_record_for_provider_identity(
                 policy.account_id,
                 policy.provider,
+                _message_identity(message),
                 scan_profile,
-                folder,
-                uid_validity,
-                uid,
             )
-            if mapped is None:
-                # The destination pointer is only available when the provider
-                # returns it. The RFC Message-ID survives the move regardless,
-                # so a proposal stays reviewable without it.
-                mapped = store.shadow_record_for_provider_identity(
-                    policy.account_id,
-                    policy.provider,
-                    _message_identity(message),
-                    scan_profile,
-                )
             if mapped is None:
                 # A message manually placed in a similarly named folder is
                 # not InboxLume evidence and must never qualify the Governor.
