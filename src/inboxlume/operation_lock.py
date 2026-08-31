@@ -50,7 +50,14 @@ class AccountOperationLock:
                 import msvcrt
 
                 if os.fstat(descriptor).st_size == 0:
-                    os.write(descriptor, b"\0")
+                    try:
+                        os.write(descriptor, b"\0")
+                    except PermissionError:
+                        # Another opener can acquire the one-byte Windows lock
+                        # between fstat() and this initialization write.  The
+                        # blocking lock below will wait for that owner, which
+                        # also restores the byte before releasing the handle.
+                        pass
                 os.lseek(descriptor, 0, os.SEEK_SET)
                 try:
                     mode = msvcrt.LK_LOCK if self.wait else msvcrt.LK_NBLCK
