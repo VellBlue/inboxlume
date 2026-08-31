@@ -9,7 +9,13 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from inboxlume.config import AccountPolicy
-from benchmarks.mlx_email_worker import _extract_json, _extract_lifecycle_json
+from benchmarks.mlx_email_worker import (
+    _extract_json,
+    _extract_lifecycle_json,
+    _lifecycle_prompt,
+    _prompt,
+    _threat_prompt,
+)
 from inboxlume.model_evaluation import (
     MlxWorkerClassifier,
     evaluate_classifier,
@@ -175,6 +181,69 @@ class ModelEvaluationTests(unittest.TestCase):
                 '"reason_codes":["completion_language"]}',
                 "order",
             )
+
+
+class WorkerPromptContractTests(unittest.TestCase):
+    """The prompt must state every constraint the parser refuses to relax.
+
+    A local model that answers well but formats a number or a flag the way the
+    prompt left unspecified is discarded as a model failure, so the guarantee
+    silently degrades to the deterministic signals alone.
+    """
+
+    def _sample(self) -> dict[str, str]:
+        return {
+            "sender": "avvisi@example.com",
+            "subject": "Conferma richiesta",
+            "body": "Testo sintetico di prova.",
+            "now_date": "2026-08-31",
+        }
+
+    def test_every_prompt_states_the_confidence_range_it_enforces(self) -> None:
+        prompts = {
+            "classification": _prompt(self._sample()),
+            "lifecycle": _lifecycle_prompt(self._sample(), "invoice"),
+            "threat": _threat_prompt(self._sample()),
+        }
+        for name, prompt in prompts.items():
+            with self.subTest(prompt=name):
+                self.assertIn("0..1", prompt)
+
+    def test_the_rated_scale_is_ruled_out_where_the_model_reached_for_it(self) -> None:
+        for name, prompt in (
+            ("lifecycle", _lifecycle_prompt(self._sample(), "invoice")),
+            ("threat", _threat_prompt(self._sample())),
+        ):
+            with self.subTest(prompt=name):
+                self.assertIn("never a 1-to-5 rating", prompt)
+
+    def test_boolean_fields_are_requested_as_json_literals(self) -> None:
+        threat = _threat_prompt(self._sample())
+        lifecycle = _lifecycle_prompt(self._sample(), "invoice")
+        for name, prompt in (("threat", threat), ("lifecycle", lifecycle)):
+            with self.subTest(prompt=name):
+                self.assertIn("JSON literal true or false", prompt)
+                self.assertIn("never a string or a number", prompt)
+
+    def test_threat_prompt_names_each_boolean_the_parser_requires(self) -> None:
+        prompt = _threat_prompt(self._sample())
+        for field in (
+            "impersonation",
+            "credential_request",
+            "money_request",
+            "urgency_pressure",
+            "link_action",
+            "plausible_legitimate_context",
+        ):
+            with self.subTest(field=field):
+                self.assertIn(field, prompt)
+
+    def test_lifecycle_prompt_keeps_its_two_vocabularies_separate(self) -> None:
+        prompt = _lifecycle_prompt(self._sample(), "invoice")
+        condition_at = prompt.find("Condition must be one of")
+        utility_at = prompt.find("Utility must be an object")
+        self.assertGreater(condition_at, 0)
+        self.assertGreater(utility_at, condition_at)
 
 
 if __name__ == "__main__":

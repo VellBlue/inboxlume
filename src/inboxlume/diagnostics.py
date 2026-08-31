@@ -32,13 +32,30 @@ DIAGNOSTIC_PHASES = frozenset(
 )
 DIAGNOSTIC_MAILBOX_OUTCOMES = frozenset({"unchanged", "changed", "unknown"})
 
-# Records written before this schema gained the two fields stay readable: the
-# phase they stopped in was never stored, and their mailbox outcome therefore
-# cannot be proven from the record alone.
-LEGACY_DIAGNOSTIC_DEFAULTS: Mapping[str, str] = {
-    "phase": "unspecified",
-    "mailbox_outcome": "unknown",
-}
+# Fields added after the first records were written.  Their absence marks an
+# older record rather than a malformed one.
+LEGACY_DIAGNOSTIC_FIELDS = ("phase", "mailbox_outcome")
+
+
+def _legacy_fallback(value: Mapping[str, object]) -> dict[str, str]:
+    """Describe an older record that predates the phase and outcome fields.
+
+    A completed record always stored real counts, so its outcome stays provable
+    from the applied count alone.  A failed or cancelled one stored defaults, so
+    neither the phase it stopped in nor the state it left the mailbox in can be
+    recovered from the record.
+    """
+
+    if value.get("status") != "completed":
+        return {"phase": "unspecified", "mailbox_outcome": "unknown"}
+    applied = value.get("applied")
+    changed = (
+        isinstance(applied, int) and not isinstance(applied, bool) and applied > 0
+    )
+    return {
+        "phase": "completed",
+        "mailbox_outcome": "changed" if changed else "unchanged",
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,13 +279,13 @@ def latest_diagnostic(path: Path) -> dict[str, object] | None:
     if not isinstance(value, dict) or value.get("schema") != DIAGNOSTIC_SCHEMA_VERSION:
         raise ValueError("invalid local diagnostic record")
     allowed = set(RunDiagnostic.__dataclass_fields__) | {"schema", "stored_plaintext"}
-    required = allowed - set(LEGACY_DIAGNOSTIC_DEFAULTS)
+    required = allowed - set(LEGACY_DIAGNOSTIC_FIELDS)
     present = set(value)
     if not required <= present <= allowed:
         raise ValueError("invalid local diagnostic fields")
     if value.get("stored_plaintext") is not False:
         raise ValueError("invalid local diagnostic fields")
-    record = {**LEGACY_DIAGNOSTIC_DEFAULTS, **value}
+    record = {**_legacy_fallback(value), **value}
     if (
         record["phase"] not in DIAGNOSTIC_PHASES
         or record["mailbox_outcome"] not in DIAGNOSTIC_MAILBOX_OUTCOMES

@@ -186,6 +186,45 @@ class DiagnosticTests(unittest.TestCase):
         self.assertEqual(latest["phase"], "unspecified")
         self.assertEqual(latest["mailbox_outcome"], "unknown")
 
+    def test_a_completed_legacy_record_keeps_its_provable_outcome(self) -> None:
+        legacy = {
+            "applied": 5,
+            "destination": "quarantine",
+            "governor_blocked": 0,
+            "governor_enforced": False,
+            "governor_requested": False,
+            "lumegraph_available": True,
+            "lumegraph_model_failures": 3,
+            "lumegraph_nodes": 30,
+            "lumegraph_transitions": 0,
+            "processed": 100,
+            "provider": "gmail",
+            "recorded_at": "2026-08-30T21:48:01.298324+00:00",
+            "scan_profile": "gemma26-policy-v2",
+            "schema": "run-diagnostic-v1",
+            "status": "completed",
+            "stored_plaintext": False,
+            "trigger": "manual",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run.diagnostics.jsonl"
+            path.write_text(
+                json.dumps(legacy, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            applied = latest_diagnostic(path)
+            path.write_text(
+                json.dumps({**legacy, "applied": 0}, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            untouched = latest_diagnostic(path)
+
+        assert applied is not None and untouched is not None
+        self.assertEqual(applied["phase"], "completed")
+        self.assertEqual(applied["mailbox_outcome"], "changed")
+        self.assertEqual(untouched["phase"], "completed")
+        self.assertEqual(untouched["mailbox_outcome"], "unchanged")
+
     def test_reader_rejects_an_unknown_phase_or_outcome(self) -> None:
         for field, value in (("phase", "elsewhere"), ("mailbox_outcome", "maybe")):
             with self.subTest(field=field):
