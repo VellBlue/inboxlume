@@ -4,8 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from unittest.mock import patch
+
 from inboxlume.local_models import (
     LocalModelProfile,
+    _process_is_translated,
     detect_hardware,
     inspect_model_availability,
     model_spec,
@@ -161,6 +164,61 @@ class LocalModelTests(unittest.TestCase):
 
         self.assertFalse(status[LocalModelProfile.GEMMA26].available)
         self.assertIn("import check", status[LocalModelProfile.GEMMA26].detail)
+
+
+class RosettaTranslationTests(unittest.TestCase):
+    """A translated process sees x86_64 on hardware that fully supports MLX."""
+
+    ROOT = Path(__file__).resolve().parents[1]
+
+    def test_a_translated_mac_is_not_reported_as_unsupported_hardware(self) -> None:
+        hardware = detect_hardware(
+            system_name="Darwin",
+            machine="x86_64",
+            total_memory_bytes=24 * 1024**3,
+            translated=True,
+        )
+        detail = inspect_model_availability(hardware)[LocalModelProfile.GEMMA26].detail
+
+        self.assertTrue(hardware.translated)
+        self.assertIn("Rosetta", detail)
+        self.assertNotIn("requires macOS on Apple Silicon", detail)
+
+    def test_genuinely_unsupported_hardware_still_says_so(self) -> None:
+        hardware = detect_hardware(
+            system_name="Linux",
+            machine="x86_64",
+            total_memory_bytes=24 * 1024**3,
+            translated=False,
+        )
+        detail = inspect_model_availability(hardware)[LocalModelProfile.GEMMA26].detail
+
+        self.assertIn("Apple Silicon", detail)
+        self.assertNotIn("Rosetta", detail)
+
+    def test_translation_is_only_ever_asked_of_macos(self) -> None:
+        with patch("inboxlume.local_models.subprocess.run") as run:
+            self.assertFalse(_process_is_translated("Linux"))
+            self.assertFalse(_process_is_translated("Windows"))
+        run.assert_not_called()
+
+    def test_a_failed_probe_never_claims_translation(self) -> None:
+        with patch(
+            "inboxlume.local_models.subprocess.run",
+            side_effect=OSError("sysctl assente"),
+        ):
+            self.assertFalse(_process_is_translated("Darwin"))
+
+    def test_both_launchers_restart_natively_before_doing_anything(self) -> None:
+        for name in ("macos/InboxLumeLauncher.sh", "Avvia InboxLume.command"):
+            with self.subTest(launcher=name):
+                script = (self.ROOT / name).read_text(encoding="utf-8")
+                self.assertIn("sysctl.proc_translated", script)
+                self.assertIn("/usr/bin/arch -arm64", script)
+                # The marker keeps a stubborn environment from looping.
+                self.assertIn("INBOXLUME_NATIVE_REEXEC", script)
+                guard = script.index("sysctl.proc_translated")
+                self.assertLess(guard, len(script) // 2)
 
 
 if __name__ == "__main__":

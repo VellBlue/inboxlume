@@ -1,6 +1,17 @@
 #!/bin/zsh
 set -eu
 
+# LaunchServices can start this bundle translated by Rosetta, and every child
+# process then inherits x86_64.  MLX ships no x86_64 build, so all local model
+# profiles would be reported unavailable on a Mac that fully supports them, and
+# the main action would stay disabled with a message blaming the hardware.
+# The marker makes the re-exec run at most once.
+if [[ "${INBOXLUME_NATIVE_REEXEC:-}" != "1" \
+    && "$(/usr/sbin/sysctl -n sysctl.proc_translated 2>/dev/null)" == "1" ]]; then
+    export INBOXLUME_NATIVE_REEXEC=1
+    exec /usr/bin/arch -arm64 "$0" "$@"
+fi
+
 project_dir="${0:A:h}"
 python_path="$project_dir/.venv/bin/python"
 app_dir="$project_dir/dist/InboxLume.app"

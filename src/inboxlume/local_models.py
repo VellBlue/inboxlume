@@ -92,6 +92,7 @@ class HardwareProfile:
     system_name: str
     machine: str
     total_memory_gib: float | None
+    translated: bool = False
 
     @property
     def apple_silicon(self) -> bool:
@@ -172,11 +173,36 @@ def _total_memory_bytes(system_name: str) -> int | None:
     return page_size * page_count if page_size > 0 and page_count > 0 else None
 
 
+def _process_is_translated(system_name: str) -> bool:
+    """Report whether this process runs under Rosetta rather than natively.
+
+    A translated process sees an x86_64 machine on Apple Silicon hardware, so
+    the architecture alone cannot tell an unsupported Mac from a supported one
+    started the wrong way.
+    """
+
+    if system_name != "Darwin":
+        return False
+    try:
+        completed = subprocess.run(
+            ["/usr/sbin/sysctl", "-n", "sysctl.proc_translated"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return completed.stdout.strip() == "1"
+
+
 def detect_hardware(
     *,
     system_name: str | None = None,
     machine: str | None = None,
     total_memory_bytes: int | None = None,
+    translated: bool | None = None,
 ) -> HardwareProfile:
     selected_system = system_name or platform.system()
     selected_machine = machine or platform.machine()
@@ -186,7 +212,17 @@ def detect_hardware(
         else _total_memory_bytes(selected_system)
     )
     memory_gib = round(memory / (1024**3), 1) if memory is not None else None
-    return HardwareProfile(selected_system, selected_machine, memory_gib)
+    is_translated = (
+        translated
+        if translated is not None
+        else _process_is_translated(selected_system)
+    )
+    return HardwareProfile(
+        selected_system,
+        selected_machine,
+        memory_gib,
+        is_translated,
+    )
 
 
 def resolve_cached_gemma(
@@ -356,10 +392,15 @@ def inspect_model_availability(
             )
             continue
         if not hardware.apple_silicon:
+            # Blaming the hardware would be wrong, and would send the user
+            # looking for a new Mac, when the app merely started translated.
             results[profile] = ModelAvailability(
                 profile,
                 False,
-                "MLX currently requires macOS on Apple Silicon",
+                "This app started translated by Rosetta, so the local model "
+                "runtime is hidden. Quit it and reopen it from its launcher."
+                if hardware.translated
+                else "MLX currently requires macOS on Apple Silicon",
                 memory_warning,
             )
             continue

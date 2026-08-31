@@ -48,6 +48,7 @@ ITALIAN_UI: dict[str, str] = {
     "Gemma 26B is recommended. Smaller models use more conservative limits.": "Gemma 26B è consigliato. I modelli più piccoli applicano limiti più prudenti.",
     "Checking local runtimes…": "Verifica dei runtime locali…",
     "RAM not detected": "RAM non rilevata",
+    "This app started translated by Rosetta, so the local model runtime is hidden. Quit it and reopen it from its launcher.": "Questa app è stata avviata tradotta da Rosetta, quindi il runtime del modello locale non è visibile. Chiudila e riaprila dal suo launcher.",
     "Detected system: {system} {machine} · {memory}. No model benchmark was run.": "Sistema rilevato: {system} {machine} · {memory}. Non è stato eseguito alcun benchmark del modello.",
     "Local scan": "Controllo locale",
     "Scan this Inbox": "Controlla questa Posta in arrivo",
