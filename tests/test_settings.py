@@ -431,5 +431,23 @@ class SettingsTests(unittest.TestCase):
             ScheduleSettings(hour=24)
 
 
+class ThreatSemanticModeSettingsTests(unittest.TestCase):
+    def test_the_confirmed_mode_survives_a_save_and_reload(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            account = AccountSettings(
+                "yahoo_test",
+                ProviderKind.YAHOO,
+                threat_semantic_mode=ThreatSemanticMode.CONFIRMED_SEMANTIC,
+            )
+            SettingsStore(path).save(ApplicationSettings((account,)))
+            reloaded = SettingsStore(path).load().account("yahoo_test")
+
+        self.assertIs(
+            reloaded.threat_semantic_mode,
+            ThreatSemanticMode.CONFIRMED_SEMANTIC,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

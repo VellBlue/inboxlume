@@ -71,6 +71,7 @@ ITALIAN_UI: dict[str, str] = {
     "Phishing and scam protection": "Protezione da phishing e truffe",
     "Threat protection depth": "Profondità della protezione antiphishing",
     "Technical screening only · fastest": "Solo controllo tecnico · più rapido",
+    "Technical screening + local AI only on technical alerts": "Screening tecnico + AI locale solo sugli allarmi tecnici",
     "Technical screening + local AI for suspicious email": "Controllo tecnico + IA locale per email sospette",
     "Fast mode uses technical signals only. Targeted mode asks the local model only about messages that already have a technical warning signal.": "La modalità rapida usa soltanto segnali tecnici. La modalità mirata interroga il modello locale soltanto per i messaggi che hanno già un segnale tecnico di avviso.",
     "LumeGraph analysis": "Analisi LumeGraph",

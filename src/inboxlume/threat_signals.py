@@ -25,9 +25,14 @@ class ThreatLevel(StrEnum):
 
 
 class ThreatSemanticMode(StrEnum):
-    """Choose how much local-model work follows the technical screening."""
+    """Choose how much local-model work follows the technical screening.
+
+    Ordered by the number of inferences a batch can spend: none, one per
+    technical alert, one per message carrying any technical anomaly.
+    """
 
     TECHNICAL_ONLY = "technical_only"
+    CONFIRMED_SEMANTIC = "confirmed_semantic"
     TARGETED_SEMANTIC = "targeted_semantic"
 
 
@@ -343,16 +348,30 @@ class ThreatConsensusAssessment:
         }
 
 
-def semantic_followup_recommended(deterministic: ThreatAssessment) -> bool:
-    """Require an independent local-model pass only after a technical signal.
+def semantic_followup_recommended(
+    deterministic: ThreatAssessment,
+    mode: ThreatSemanticMode | str = ThreatSemanticMode.TARGETED_SEMANTIC,
+) -> bool:
+    """Decide whether this message earns an independent local-model pass.
 
     The deterministic layer has already inspected identity, link, authentication
-    and high-risk language signals.  A message without any such signal does not
-    consume a second model inference in the targeted mode.  Any signal, including
-    a single low-score anomaly, remains eligible so that the optimisation never
-    turns the technical threshold into an implicit allow-list.
+    and high-risk language signals, so the mode chooses how far down that
+    evidence the second pass reaches.
+
+    In the targeted mode any signal qualifies, including a single low-score
+    anomaly, so that the optimisation never turns the technical threshold into
+    an implicit allow-list.  In the confirmed mode only a message the technical
+    layer already reports as an alert qualifies: the pass becomes a second
+    opinion on findings rather than a sweep of anomalies.  The combination of
+    the two layers stays additive either way, so a second opinion can raise a
+    finding but never clear one.
     """
 
+    selected = ThreatSemanticMode(mode)
+    if selected is ThreatSemanticMode.TECHNICAL_ONLY:
+        return False
+    if selected is ThreatSemanticMode.CONFIRMED_SEMANTIC:
+        return deterministic.protective_review_recommended
     return bool(deterministic.signals)
 
 

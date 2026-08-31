@@ -319,10 +319,7 @@ def _apply_threat_protection(
             result.message,
             trusted_authentication_results=False,
         )
-        should_request_semantics = (
-            mode is ThreatSemanticMode.TARGETED_SEMANTIC
-            and semantic_followup_recommended(deterministic)
-        )
+        should_request_semantics = semantic_followup_recommended(deterministic, mode)
         if should_request_semantics and callable(semantic_analyzer):
             semantic_inferences_requested += 1
             try:
@@ -338,9 +335,13 @@ def _apply_threat_protection(
             semantic = _semantic_threat_fallback("local-model-unavailable")
         else:
             semantic_inferences_skipped += 1
+            # A message skipped in the confirmed mode may still carry weak
+            # signals, so calling it clear would misreport the evidence.
             analyzer = (
                 "technical-only"
                 if mode is ThreatSemanticMode.TECHNICAL_ONLY
+                else "technical-below-alert"
+                if deterministic.signals
                 else "technical-screen-clear"
             )
             semantic = _semantic_threat_fallback(analyzer)

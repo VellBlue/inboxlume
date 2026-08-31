@@ -368,9 +368,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     scan.add_argument(
         "--threat-semantic-mode",
-        choices=("technical_only", "targeted_semantic"),
+        choices=("technical_only", "confirmed_semantic", "targeted_semantic"),
         default="targeted_semantic",
-        help="run no second model pass, or run it only after technical suspicion",
+        help=(
+            "run no second model pass, run it only on technical alerts, or run "
+            "it on any technical anomaly"
+        ),
     )
     scan.add_argument(
         "--skip-lumegraph",

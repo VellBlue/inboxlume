@@ -1168,6 +1168,10 @@ class SettingsWindow(QMainWindow):
             ThreatSemanticMode.TECHNICAL_ONLY,
         )
         self.threat_semantic_mode.addItem(
+            self._("Technical screening + local AI only on technical alerts"),
+            ThreatSemanticMode.CONFIRMED_SEMANTIC,
+        )
+        self.threat_semantic_mode.addItem(
             self._("Technical screening + local AI for suspicious email"),
             ThreatSemanticMode.TARGETED_SEMANTIC,
         )

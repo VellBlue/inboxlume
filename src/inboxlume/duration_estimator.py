@@ -172,8 +172,12 @@ def estimate_scan_duration(
     factors = [model_profile.value, provider.value, destination.value]
     if threat_protection_enabled:
         factors.append("local_threat_technical")
+        # Distinct names keep each mode's measured samples apart, so the two
+        # semantic modes never correct each other's estimate.
         if threat_semantic_mode is ThreatSemanticMode.TARGETED_SEMANTIC:
             factors.append("targeted_local_threat_semantics")
+        elif threat_semantic_mode is ThreatSemanticMode.CONFIRMED_SEMANTIC:
+            factors.append("confirmed_local_threat_semantics")
     if lumegraph_enabled:
         factors.append("lumegraph_shadow")
     if obsolescence_proof_enabled:
@@ -255,34 +259,28 @@ def estimate_scan_duration(
         # Technical screening is lightweight.  In targeted mode the local model
         # sees only messages that already have a technical warning, never every
         # message.  Matching local samples already measure the full pipeline.
+        #
+        # The confirmed mode reaches a strict subset of that set, so sharing the
+        # fraction over-estimates it.  Over-estimating a duration is the safe
+        # direction, and the separate sample factor corrects it from real runs
+        # rather than from a number invented here.
+        semantic_pass_expected = threat_protection_enabled and threat_semantic_mode in {
+            ThreatSemanticMode.TARGETED_SEMANTIC,
+            ThreatSemanticMode.CONFIRMED_SEMANTIC,
+        }
         semantic_factor = (
-            0.85 * threat_semantic_fraction
-            if (
-                threat_protection_enabled
-                and threat_semantic_mode is ThreatSemanticMode.TARGETED_SEMANTIC
-            )
-            else 0.0
+            0.85 * threat_semantic_fraction if semantic_pass_expected else 0.0
         )
         lifecycle_factor = 0.65 * lifecycle_fraction if lumegraph_enabled else 0.0
         proof_factor = 0.05 if obsolescence_proof_enabled else 0.0
         central *= 1.0 + semantic_factor + lifecycle_factor + proof_factor
         lower *= 1.0 + (
-            0.65 * threat_semantic_fraction
-            if (
-                threat_protection_enabled
-                and threat_semantic_mode is ThreatSemanticMode.TARGETED_SEMANTIC
-            )
-            else 0.0
+            0.65 * threat_semantic_fraction if semantic_pass_expected else 0.0
         ) + (
             0.45 * lifecycle_fraction if lumegraph_enabled else 0.0
         ) + (0.03 if obsolescence_proof_enabled else 0.0)
         upper *= 1.0 + (
-            1.10 * threat_semantic_fraction
-            if (
-                threat_protection_enabled
-                and threat_semantic_mode is ThreatSemanticMode.TARGETED_SEMANTIC
-            )
-            else 0.0
+            1.10 * threat_semantic_fraction if semantic_pass_expected else 0.0
         ) + (
             0.90 * lifecycle_fraction if lumegraph_enabled else 0.0
         ) + (0.08 if obsolescence_proof_enabled else 0.0)

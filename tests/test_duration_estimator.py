@@ -142,5 +142,34 @@ class DurationEstimatorTests(unittest.TestCase):
             ScanTimingSample(True, 1.0)
 
 
+class ConfirmedSemanticEstimateTests(unittest.TestCase):
+    def _estimate(self, mode):  # noqa: ANN001
+        return estimate_scan_duration(
+            eligible_unprocessed=100,
+            session_limit_reached=False,
+            model_profile=LocalModelProfile.GEMMA26,
+            hardware=APPLE_24,
+            provider=ProviderKind.YAHOO,
+            destination=MessageDestination.QUARANTINE,
+            governor_enforced=False,
+            action_fraction=0.5,
+            threat_protection_enabled=True,
+            threat_semantic_mode=mode,
+        )
+
+    def test_each_semantic_mode_keeps_its_own_sample_factor(self) -> None:
+        confirmed = self._estimate(ThreatSemanticMode.CONFIRMED_SEMANTIC)
+        targeted = self._estimate(ThreatSemanticMode.TARGETED_SEMANTIC)
+        technical = self._estimate(ThreatSemanticMode.TECHNICAL_ONLY)
+
+        # Mixing the samples of two modes would let one correct the other's
+        # estimate with timings it never produced.
+        self.assertIn("confirmed_local_threat_semantics", confirmed.factors)
+        self.assertIn("targeted_local_threat_semantics", targeted.factors)
+        self.assertNotIn("targeted_local_threat_semantics", confirmed.factors)
+        self.assertNotIn("confirmed_local_threat_semantics", targeted.factors)
+        self.assertNotIn("confirmed_local_threat_semantics", technical.factors)
+
+
 if __name__ == "__main__":
     unittest.main()

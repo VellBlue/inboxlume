@@ -266,6 +266,214 @@ class ThreatPolicyTests(unittest.TestCase):
         self.assertEqual(protected[0].decision.action, PolicyAction.QUARANTINE)
         self.assertEqual(protected[1].decision.action, PolicyAction.REVIEW)
 
+    @staticmethod
+    def _semantic_benign() -> SemanticThreatAssessment:
+        return SemanticThreatAssessment(
+            SemanticThreatVerdict.BENIGN,
+            ThreatIntent.NONE,
+            False,
+            False,
+            False,
+            False,
+            False,
+            True,
+            0.95,
+            ("benign_context",),
+            "test-local-backend",
+        )
+
+    @staticmethod
+    def _weak_signal_message():
+        # One low-score anomaly, far below an alert: reply-to on another domain.
+        return make_message(
+            sender="Offers <offers@example.invalid>",
+            headers={"Reply-To": "reply@example.test"},
+            subject="Special offer",
+            body_text="Promotion ending today.",
+            message_id="confirmed-weak",
+        )
+
+    @staticmethod
+    def _alert_message():
+        return make_message(
+            sender="Google Security <notice@example.invalid>",
+            subject="Urgent: account suspended",
+            body_text="Verify your password immediately: https://192.0.2.8/login",
+            message_id="confirmed-alert",
+        )
+
+    def _run_both_modes(self, backend_factory):
+        classification = Classification(EmailCategory.SPAM, 0.98, ("test",), "test")
+        decision = PolicyDecision(PolicyAction.QUARANTINE, ("ordinary_cleanup",))
+        outcomes = {}
+        for mode in (
+            ThreatSemanticMode.CONFIRMED_SEMANTIC,
+            ThreatSemanticMode.TARGETED_SEMANTIC,
+        ):
+            weak = self._weak_signal_message()
+            alert = self._alert_message()
+            backend = backend_factory()
+            with tempfile.TemporaryDirectory() as directory:
+                store = PreferenceStore(
+                    Path(directory) / f"{mode.value}.sqlite3", b"c" * 32
+                )
+                protected, report = _apply_threat_protection(
+                    [
+                        DryRunResult(weak, classification, decision, 180),
+                        DryRunResult(alert, classification, decision, 180),
+                    ],
+                    backend,
+                    store,
+                    weak.account_id,
+                    PROFILE,
+                    NOW,
+                    mode,
+                )
+            outcomes[mode] = (backend, protected, report)
+        return outcomes
+
+    def test_confirmed_mode_asks_the_local_ai_only_about_technical_alerts(self) -> None:
+        class CountingBackend:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def assess_threat_semantics(self, _message):  # noqa: ANN001
+                self.calls += 1
+                return ThreatPolicyTests._semantic_phishing()
+
+        outcomes = self._run_both_modes(CountingBackend)
+        confirmed_backend, confirmed, confirmed_report = outcomes[
+            ThreatSemanticMode.CONFIRMED_SEMANTIC
+        ]
+        targeted_backend, _, targeted_report = outcomes[
+            ThreatSemanticMode.TARGETED_SEMANTIC
+        ]
+
+        # A single low-score anomaly earns a second opinion in the targeted
+        # mode but not in the confirmed one, which is the whole point.
+        self.assertEqual(confirmed_backend.calls, 1)
+        self.assertEqual(targeted_backend.calls, 2)
+        self.assertEqual(
+            confirmed_report["semantic_inferences_requested_current_batch"], 1
+        )
+        self.assertEqual(
+            confirmed_report["semantic_inferences_skipped_current_batch"], 1
+        )
+        self.assertEqual(
+            targeted_report["semantic_inferences_requested_current_batch"], 2
+        )
+        self.assertEqual(confirmed_report["semantic_mode"], "confirmed_semantic")
+        # The alert still becomes a protective review; only the weak anomaly
+        # is left to the technical layer.
+        self.assertEqual(confirmed[0].decision.action, PolicyAction.QUARANTINE)
+        self.assertEqual(confirmed[1].decision.action, PolicyAction.REVIEW)
+
+    def test_confirmed_mode_never_asks_about_more_than_the_targeted_mode(self) -> None:
+        class CountingBackend:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def assess_threat_semantics(self, _message):  # noqa: ANN001
+                self.calls += 1
+                return ThreatPolicyTests._semantic_phishing()
+
+        outcomes = self._run_both_modes(CountingBackend)
+
+        self.assertLessEqual(
+            outcomes[ThreatSemanticMode.CONFIRMED_SEMANTIC][0].calls,
+            outcomes[ThreatSemanticMode.TARGETED_SEMANTIC][0].calls,
+        )
+
+    def test_a_benign_second_opinion_cannot_clear_a_technical_alert(self) -> None:
+        class BenignBackend:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def assess_threat_semantics(self, _message):  # noqa: ANN001
+                self.calls += 1
+                return ThreatPolicyTests._semantic_benign()
+
+        alert = self._alert_message()
+        classification = Classification(EmailCategory.SPAM, 0.98, ("test",), "test")
+        decision = PolicyDecision(PolicyAction.QUARANTINE, ("ordinary_cleanup",))
+        backend = BenignBackend()
+        with tempfile.TemporaryDirectory() as directory:
+            store = PreferenceStore(Path(directory) / "benign.sqlite3", b"d" * 32)
+            protected, report = _apply_threat_protection(
+                [DryRunResult(alert, classification, decision, 180)],
+                backend,
+                store,
+                alert.account_id,
+                PROFILE,
+                NOW,
+                ThreatSemanticMode.CONFIRMED_SEMANTIC,
+            )
+
+        # The combination stays additive: a second opinion can raise a finding,
+        # never withdraw one. Weakening this would let the model overrule the
+        # technical layer.
+        self.assertEqual(backend.calls, 1)
+        self.assertEqual(protected[0].decision.action, PolicyAction.REVIEW)
+        self.assertEqual(report["protective_reviews_current_batch"], 1)
+
+    def test_raising_the_mode_reopens_what_the_weaker_mode_skipped(self) -> None:
+        classification = Classification(EmailCategory.SPAM, 0.98, ("test",), "test")
+        decision = PolicyDecision(PolicyAction.QUARANTINE, ("ordinary_cleanup",))
+        weak = self._weak_signal_message()
+        with tempfile.TemporaryDirectory() as directory:
+            store = PreferenceStore(Path(directory) / "reopen.sqlite3", b"e" * 32)
+            store.record_shadow_scan(weak, classification, decision, PROFILE, NOW)
+            _apply_threat_protection(
+                [DryRunResult(weak, classification, decision, 180)],
+                None,
+                store,
+                weak.account_id,
+                PROFILE,
+                NOW,
+                ThreatSemanticMode.CONFIRMED_SEMANTIC,
+            )
+
+            # Staying on the same mode keeps the row: nothing new would be
+            # learned by analysing it again.
+            self.assertEqual(
+                store.reset_stale_threat_assessments(
+                    weak.account_id, PROFILE, ThreatSemanticMode.CONFIRMED_SEMANTIC
+                ),
+                0,
+            )
+            # Moving up must reopen it, otherwise a message the weaker mode
+            # never sent to the model would keep a stale verdict forever.
+            self.assertEqual(
+                store.reset_stale_threat_assessments(
+                    weak.account_id, PROFILE, ThreatSemanticMode.TARGETED_SEMANTIC
+                ),
+                1,
+            )
+
+    def test_a_technical_only_row_reopens_for_the_confirmed_mode_too(self) -> None:
+        classification = Classification(EmailCategory.SPAM, 0.98, ("test",), "test")
+        decision = PolicyDecision(PolicyAction.QUARANTINE, ("ordinary_cleanup",))
+        alert = self._alert_message()
+        with tempfile.TemporaryDirectory() as directory:
+            store = PreferenceStore(Path(directory) / "upgrade.sqlite3", b"f" * 32)
+            store.record_shadow_scan(alert, classification, decision, PROFILE, NOW)
+            _apply_threat_protection(
+                [DryRunResult(alert, classification, decision, 180)],
+                None,
+                store,
+                alert.account_id,
+                PROFILE,
+                NOW,
+                ThreatSemanticMode.TECHNICAL_ONLY,
+            )
+
+            self.assertEqual(
+                store.reset_stale_threat_assessments(
+                    alert.account_id, PROFILE, ThreatSemanticMode.CONFIRMED_SEMANTIC
+                ),
+                1,
+            )
+
     def test_technical_only_mode_never_calls_local_ai(self) -> None:
         class CountingBackend:
             def __init__(self) -> None:

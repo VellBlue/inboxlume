@@ -2339,13 +2339,26 @@ class PreferenceStore:
                       AND (
                         engine_version <> ?
                         OR analyzer = 'disabled-by-user'
-                        OR (? = 'targeted_semantic' AND analyzer = 'technical-only')
+                        -- A row recorded under a weaker mode never received the
+                        -- pass the current mode would give it, so it must be
+                        -- reopened rather than reused.  'technical-screen-clear'
+                        -- marks a message with no signal at all, which no mode
+                        -- would analyse, so it stays valid.
+                        OR (
+                            ? IN ('targeted_semantic', 'confirmed_semantic')
+                            AND analyzer = 'technical-only'
+                        )
+                        OR (
+                            ? = 'targeted_semantic'
+                            AND analyzer = 'technical-below-alert'
+                        )
                       )
                     """,
                     (
                         account_id,
                         scan_profile,
                         THREAT_CONSENSUS_ENGINE_VERSION,
+                        mode.value,
                         mode.value,
                     ),
                 ).fetchall()

@@ -7,6 +7,8 @@ from benchmarks.mlx_email_worker import _extract_threat_json
 from inboxlume.classifier import OllamaClassifier
 from inboxlume.threat_signals import (
     SemanticThreatAssessment,
+    ThreatSemanticMode,
+    semantic_followup_recommended,
     SemanticThreatVerdict,
     ThreatLevel,
     ThreatIntent,
@@ -194,6 +196,80 @@ class ThreatSignalTests(unittest.TestCase):
         invalid["reason_codes"] = ["free_form_reason"]
         with self.assertRaises(ValueError):
             _extract_threat_json(json.dumps(invalid))
+
+
+class SemanticFollowupGateTests(unittest.TestCase):
+    WEAK = make_message(
+        sender="Offers <offers@example.invalid>",
+        headers={"Reply-To": "reply@example.test"},
+        subject="Special offer",
+        body_text="Promotion ending today.",
+    )
+    ALERT = make_message(
+        sender="Google Security <notice@example.invalid>",
+        subject="Urgent: account suspended",
+        body_text="Verify your password immediately: https://192.0.2.8/login",
+    )
+
+    def _assess(self, message):  # noqa: ANN001
+        return assess_threat_signals(message, trusted_authentication_results=False)
+
+    def test_the_weak_case_really_is_a_signal_below_an_alert(self) -> None:
+        weak = self._assess(self.WEAK)
+
+        # The whole distinction rests on this: a signal, but not an alert.
+        self.assertTrue(weak.signals)
+        self.assertFalse(weak.protective_review_recommended)
+        self.assertTrue(self._assess(self.ALERT).protective_review_recommended)
+
+    def test_technical_only_never_asks_the_model(self) -> None:
+        for message in (self.WEAK, self.ALERT):
+            with self.subTest(message=message.message_id):
+                self.assertFalse(
+                    semantic_followup_recommended(
+                        self._assess(message), ThreatSemanticMode.TECHNICAL_ONLY
+                    )
+                )
+
+    def test_confirmed_asks_only_about_alerts(self) -> None:
+        self.assertFalse(
+            semantic_followup_recommended(
+                self._assess(self.WEAK), ThreatSemanticMode.CONFIRMED_SEMANTIC
+            )
+        )
+        self.assertTrue(
+            semantic_followup_recommended(
+                self._assess(self.ALERT), ThreatSemanticMode.CONFIRMED_SEMANTIC
+            )
+        )
+
+    def test_targeted_asks_about_any_signal(self) -> None:
+        for message in (self.WEAK, self.ALERT):
+            with self.subTest(message=message.message_id):
+                self.assertTrue(
+                    semantic_followup_recommended(
+                        self._assess(message), ThreatSemanticMode.TARGETED_SEMANTIC
+                    )
+                )
+
+    def test_each_mode_is_a_subset_of_the_next(self) -> None:
+        for message in (self.WEAK, self.ALERT):
+            technical, confirmed, targeted = (
+                semantic_followup_recommended(self._assess(message), mode)
+                for mode in (
+                    ThreatSemanticMode.TECHNICAL_ONLY,
+                    ThreatSemanticMode.CONFIRMED_SEMANTIC,
+                    ThreatSemanticMode.TARGETED_SEMANTIC,
+                )
+            )
+            with self.subTest(message=message.message_id):
+                self.assertLessEqual(technical, confirmed)
+                self.assertLessEqual(confirmed, targeted)
+
+    def test_the_mode_accepts_its_stored_string_form(self) -> None:
+        self.assertTrue(
+            semantic_followup_recommended(self._assess(self.ALERT), "confirmed_semantic")
+        )
 
 
 if __name__ == "__main__":
