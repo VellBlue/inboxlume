@@ -171,3 +171,44 @@ blockquote.lesson p { margin: 0; color: inherit; }
 .metric strong { display: block; margin-top: 6px; font-size: 1.6rem; }
 .metric.bad strong { color: var(--danger); }
 .metric.good strong { color: var(--lume); }
+
+/* Static technical article pages generated from the repository Markdown source. */
+.article-shell { padding: 34px 0 90px; }
+.article-hero { padding: clamp(48px, 8vw, 92px) 0 44px; }
+.article-hero h1 {
+  max-width: 18ch;
+  margin-bottom: 0;
+  font-size: clamp(2.7rem, 5.5vw, 4.7rem);
+}
+.article-prose { max-width: 860px; }
+.article-prose > p,
+.article-prose > ul,
+.article-prose > ol { color: #c2d9d0; font-size: 1.04rem; }
+.article-prose > p { margin: 0 0 1.3em; }
+.article-prose a { overflow-wrap: anywhere; }
+.article-prose > h2 {
+  margin: 76px 0 24px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+  font-size: clamp(1.9rem, 4vw, 3.1rem);
+  scroll-margin-top: 24px;
+}
+.article-prose > ul,
+.article-prose > ol { padding-left: 1.35rem; margin: 0 0 1.6rem; }
+.article-prose > ul li,
+.article-prose > ol li { padding-left: .35rem; margin: .65rem 0; }
+.article-note {
+  margin: 0 0 18px; padding: 18px 22px;
+  border: 1px solid var(--line); border-radius: 16px;
+  background: rgba(255,255,255,.025); color: var(--muted);
+}
+.article-note p { margin: 0 0 10px; }
+.article-note p:last-child { margin-bottom: 0; }
+.article-table { overflow-x: auto; margin: 18px 0 34px; }
+.article-table .comparison { margin-top: 0; min-width: 650px; }
+
+@media (max-width: 620px) {
+  .article-shell { padding-top: 10px; }
+  .article-prose > h2 { margin-top: 54px; }
+  .article-note { padding: 16px 18px; }
+}

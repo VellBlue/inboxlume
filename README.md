@@ -154,7 +154,7 @@ while conflicts force review.
 ## Documentation
 
 - [Project site](https://VellBlue.github.io/inboxlume/) · [Italian site](https://VellBlue.github.io/inboxlume/it/)
-- [Technical article](docs/ARTICLE.md) · [Italian article](docs/it/ARTICLE.md)
+- [Technical article](https://vellblue.github.io/inboxlume/article.html) · [Italian article](https://vellblue.github.io/inboxlume/it/article.html) · [Markdown sources](docs/ARTICLE.md)
 - [Engineering log](docs/engineering-log.html) · [Italian engineering log](docs/it/engineering-log.html)
 - [Installation and compatibility](docs/INSTALLATION.md)
 - [Local model profiles](docs/LOCAL_MODELS.md)

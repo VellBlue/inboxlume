@@ -3,7 +3,7 @@
 > Engineering log, 31 August 2026. Development status: this records observations
 > from a development repository, not from a release.
 > [Leggi la versione italiana](it/ENGINEERING_LOG.md) ·
-> [Back to the main article](ARTICLE.md).
+> [Back to the main article](article.html).
 
 Design documents describe what a system is supposed to do. This one records what
 happened the first time InboxLume met a real local model, a real IMAP server and a

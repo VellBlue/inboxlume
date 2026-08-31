@@ -167,7 +167,7 @@ dedicato. Il sito GitHub Pages usa soltanto contenuti e asset sanificati.
 - [Modelli locali](docs/LOCAL_MODELS.md) e [benchmark](docs/MODEL_BENCHMARKS.md)
 - [Threat model](SECURITY.md) e [inventario permessi](docs/PERMISSIONS.md)
 - [Memoria completa del prodotto](docs/PRODUCT_MEMORY.md)
-- [Articolo tecnico in italiano](docs/it/ARTICLE.md) e [versione inglese](docs/ARTICLE.md)
+- [Articolo tecnico in italiano](https://vellblue.github.io/inboxlume/it/article.html), [versione inglese](https://vellblue.github.io/inboxlume/article.html) e [sorgente Markdown](docs/it/ARTICLE.md)
 - [Diario di ingegneria](docs/it/engineering-log.html) e [versione inglese](docs/engineering-log.html)
 - [Checklist e gate di pubblicazione](docs/RELEASE_CHECKLIST.md)
 

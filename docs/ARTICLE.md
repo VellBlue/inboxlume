@@ -2,7 +2,7 @@
 
 > Public development article. It describes the current source snapshot, not a
 > supported packaged release, and must continue to be updated against measured
-> features and benchmarks. [Leggi la versione italiana](it/ARTICLE.md).
+> features and benchmarks. [Leggi la versione italiana](it/article.html).
 
 > For measured results from real development runs, see the
 > [engineering log](engineering-log.html).

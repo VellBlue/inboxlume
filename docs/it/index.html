@@ -3,21 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="InboxLume usa modelli AI locali e guardrail deterministici per comprendere e ripulire Gmail e Yahoo senza inviare il contenuto a servizi AI cloud.">
+  <meta name="description" content="InboxLume usa modelli di IA locali e regole deterministiche per comprendere e ripulire Gmail e Yahoo senza inviare il contenuto a servizi di IA esterni.">
   <meta name="color-scheme" content="dark">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="InboxLume — AI privata per una posta più pulita">
+  <meta property="og:title" content="InboxLume — IA privata per una posta più pulita">
   <meta property="og:description" content="Comprensione locale delle email, apprendimento privato, azioni reversibili ed evidenza di sicurezza esplicita.">
   <meta property="og:url" content="https://vellblue.github.io/inboxlume/it/">
-  <title>InboxLume — AI privata per una posta più pulita</title>
+  <title>InboxLume — IA privata per una posta più pulita</title>
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="canonical" href="https://vellblue.github.io/inboxlume/it/">
   <link rel="alternate" hreflang="it" href="https://vellblue.github.io/inboxlume/it/">
   <link rel="alternate" hreflang="en" href="https://vellblue.github.io/inboxlume/">
-  <link rel="stylesheet" href="../assets/site.css?v=20260831">
+  <link rel="stylesheet" href="../assets/site.css?v=20260901a">
 </head>
 <body>
-  <div class="preflight">Anteprima pubblica di sviluppo — non è ancora disponibile una release pacchettizzata supportata.</div>
+  <div class="preflight">Anteprima pubblica di sviluppo — non è ancora disponibile una versione installabile ufficialmente supportata.</div>
   <header class="wrap">
     <nav aria-label="Navigazione principale">
       <a class="brand" href="#top"><span class="brand-mark">IL</span><strong>InboxLume</strong></a>
@@ -32,19 +32,19 @@
   <main id="top">
     <div class="wrap hero">
       <div>
-        <div class="eyebrow">Private AI for a cleaner inbox</div>
-        <h1>La tua posta.<br>La tua AI.<br>Sul tuo dispositivo.</h1>
-        <p class="lead">InboxLume comprende il contenuto della Posta in arrivo con un modello locale, impara da correzioni private e agisce soltanto entro guardrail limitati e reversibili.</p>
+        <div class="eyebrow">IA privata per una posta più pulita</div>
+        <h1>La tua posta.<br>La tua IA.<br>Sul tuo dispositivo.</h1>
+        <p class="lead">InboxLume comprende il contenuto della Posta in arrivo con un modello locale, impara da correzioni private e agisce soltanto entro limiti chiari e reversibili.</p>
         <div class="hero-actions">
           <a class="button primary" href="#architettura">Scopri come funziona</a>
-          <a class="button" href="ARTICLE.md">Leggi l'articolo tecnico</a>
+          <a class="button" href="article.html">Leggi l'articolo tecnico</a>
           <a class="button" href="engineering-log.html">Leggi il diario di ingegneria</a>
         </div>
       </div>
       <aside class="hero-card" aria-label="Principi chiave">
-        <div class="signal"><span>Contenuto inviato ad AI cloud</span><strong>Mai</strong></div>
-        <div class="signal"><span>Modello sempre in memoria</span><strong>No, one-shot</strong></div>
-        <div class="signal"><span>Posta inviata o bozze</span><strong>Fuori scope</strong></div>
+        <div class="signal"><span>Contenuto inviato a servizi di IA esterni</span><strong>Mai</strong></div>
+        <div class="signal"><span>Modello sempre in memoria</span><strong>No, solo quando serve</strong></div>
+        <div class="signal"><span>Posta inviata o bozze</span><strong>Escluse</strong></div>
         <div class="signal"><span>Eliminazione permanente</span><strong>Non implementata</strong></div>
         <div class="signal"><span>Account</span><strong>Separati per progetto</strong></div>
       </aside>
@@ -53,23 +53,23 @@
     <section id="perche" class="wrap">
       <div class="eyebrow">Il problema</div>
       <h2>Un archivio enorme non dovrebbe obbligarti a cedere la sua memoria.</h2>
-      <p class="section-intro">Le regole per mittente non capiscono che due email della stessa azienda possono avere valori opposti. I servizi AI cloud possono capire il contenuto, ma introducono un altro soggetto nel percorso dei dati. InboxLume esplora una terza strada: semantica locale, permessi minimi e astensione quando la prova non basta.</p>
+      <p class="section-intro">Le regole basate sul mittente non capiscono che due email della stessa azienda possono avere valori opposti. I servizi di IA esterni possono interpretare il contenuto, ma introducono un altro soggetto nel percorso dei dati. InboxLume esplora una terza strada: comprensione locale, permessi minimi e astensione quando le prove non bastano.</p>
       <div class="grid">
         <article class="panel"><div class="number">01 · CONTESTO</div><h3>Valuta il singolo messaggio</h3><p>Età, categoria e mittente sono segnali, non verdetti. Una promozione può essere utile; una notifica legittima può non esserlo.</p></article>
-        <article class="panel"><div class="number">02 · MEMORIA</div><h3>Impara senza creare un corpus</h3><p>Quiz e comportamento diventano impronte HMAC e feature minimizzate. Oggetto, mittente e corpo non sono conservati nel database.</p></article>
-        <article class="panel"><div class="number">03 · CONTROLLO</div><h3>Preferisce non agire</h3><p>Categorie protette, conflitti, allegati, bassa confidenza o runtime assente producono revisione. La Quarantena resta la via consigliata.</p></article>
+        <article class="panel"><div class="number">02 · MEMORIA</div><h3>Impara senza creare un nuovo archivio</h3><p>Quiz e comportamento diventano impronte HMAC e informazioni ridotte al minimo. Oggetto, mittente e corpo non sono conservati nel database.</p></article>
+        <article class="panel"><div class="number">03 · CONTROLLO</div><h3>In caso di dubbio non agisce</h3><p>Categorie protette, conflitti, allegati, scarsa affidabilità o ambiente locale non disponibile richiedono una revisione. La Quarantena resta la scelta consigliata.</p></article>
       </div>
     </section>
 
     <section id="architettura" class="wrap">
       <div class="eyebrow">Architettura</div>
       <h2>Il modello non è l'agente con le chiavi.</h2>
-      <p class="section-intro">Lettura, inferenza, decisione e azione sono responsabilità distinte. Il modello riceve testo sanificato in RAM, ma non credenziali o metodi per modificare la casella. L'esecutore riceve ID opachi già selezionati dalla policy.</p>
+      <p class="section-intro">Lettura, inferenza, decisione e azione sono responsabilità distinte. Il modello riceve testo sanificato in RAM, ma non credenziali o metodi per modificare la casella. L'esecutore riceve identificativi opachi già approvati dalle regole.</p>
       <div class="architecture panel"><img src="../assets/architecture.svg" alt="Diagramma dei quattro componenti separati di InboxLume"></div>
       <div class="grid">
-        <article class="panel"><h3>Inbox-only</h3><p>Gmail usa label Inbox e trasporti allowlist; Yahoo seleziona esclusivamente INBOX. SMTP, Sent, drafts e settings non esistono nel dominio operativo.</p></article>
-        <article class="panel"><h3>One-shot</h3><p>Quiz, scansione e pianificazione partono soltanto quando richiesto. Il controllo può usare un lotto limitato o continuare finché non restano email idonee; poi il modello viene scaricato.</p></article>
-        <article class="panel"><h3>Reversibile</h3><p>Quarantena visibile per account, nuova verifica prima del Cestino e nessuna API per permanent delete o empty-trash.</p></article>
+        <article class="panel"><h3>Solo Posta in arrivo</h3><p>Gmail usa l'etichetta Posta in arrivo e operazioni ammesse da un elenco esplicito; Yahoo seleziona esclusivamente INBOX. SMTP, Posta inviata, bozze e impostazioni restano fuori dal perimetro operativo.</p></article>
+        <article class="panel"><h3>Solo quando richiesto</h3><p>Quiz, scansione e pianificazione partono soltanto quando richiesto. Il controllo può esaminare un gruppo limitato o continuare finché non restano email idonee; poi il modello viene scaricato dalla memoria.</p></article>
+        <article class="panel"><h3>Reversibile</h3><p>Quarantena visibile per account, nuova verifica prima del Cestino e nessuna funzione per eliminare definitivamente o svuotare il Cestino.</p></article>
       </div>
     </section>
 
@@ -77,25 +77,25 @@
       <div class="eyebrow">Locale e cloud</div>
       <h2>“Locale” non è uno slogan: è un confine da dichiarare con precisione.</h2>
       <table class="comparison">
-        <thead><tr><th>Dimensione</th><th>InboxLume</th><th>Approccio AI cloud tipico</th></tr></thead>
+        <thead><tr><th>Dimensione</th><th>InboxLume</th><th>Tipico servizio di IA esterno</th></tr></thead>
         <tbody>
           <tr><td>Inferenza</td><td>Sul dispositivo, con cache già locale</td><td>Su infrastruttura del fornitore</td></tr>
-          <tr><td>Contenuto email</td><td>Provider → dispositivo; nessun servizio AI esterno</td><td>Può essere trasmesso al servizio AI secondo il prodotto</td></tr>
+          <tr><td>Contenuto email</td><td>Fornitore → dispositivo; nessun servizio di IA esterno</td><td>Può essere trasmesso al servizio di IA secondo il prodotto</td></tr>
           <tr><td>Personalizzazione</td><td>Stato separato per account, conservato localmente</td><td>Spesso legato a un account del servizio</td></tr>
           <tr><td>Risorse</td><td>RAM e calcolo dell'utente, solo durante l'operazione</td><td>Calcolo remoto, latenza e disponibilità di rete</td></tr>
-          <tr><td>Verificabilità</td><td>Codice, policy e audit ispezionabili</td><td>Dipende dalla trasparenza del fornitore</td></tr>
+          <tr><td>Verificabilità</td><td>Codice, regole e controlli ispezionabili</td><td>Dipende dalla trasparenza del fornitore</td></tr>
         </tbody>
       </table>
-      <p class="fineprint">InboxLume deve comunque comunicare con Gmail o Yahoo per ricevere e organizzare la posta. “Tutto locale” riguarda inferenza, apprendimento e stato privato dopo il trasferimento dal provider scelto; non significa che l'email stessa non esista presso il provider.</p>
+      <p class="fineprint">InboxLume deve comunque comunicare con Gmail o Yahoo per ricevere e organizzare la posta. “Tutto locale” riguarda inferenza, apprendimento e stato privato dopo il trasferimento dal fornitore scelto; non significa che l'email stessa non esista presso il fornitore.</p>
     </section>
 
     <section id="matematica" class="wrap">
       <div class="eyebrow">Calibrazione del rischio</div>
       <h2>Quaranta risposte sono un inizio, non una certificazione.</h2>
-      <p class="section-intro">L'accuracy media può nascondere l'errore più costoso: mettere da parte una mail importante. InboxLume misura falsi cleanup, copertura e astensioni. Anche con zero errori osservati, un campione piccolo lascia grande incertezza.</p>
+      <p class="section-intro">L'accuratezza media può nascondere l'errore più costoso: mettere da parte una mail importante. InboxLume misura azioni di pulizia errate, copertura e astensioni. Anche con zero errori osservati, un campione piccolo lascia molta incertezza.</p>
       <div class="formula">p<sub>upper</sub> = 1 − 0,05<sup>(1/n)</sup></div>
       <p>Con <em>n</em> casi indipendenti e zero errori, questo semplice limite superiore unilaterale al 95% è circa 7,2% con 40 casi. Per scendere sotto l'1% servono circa 299 casi comparabili senza errori. Le ipotesi non sono sempre valide nella posta reale: temi e interessi cambiano, perciò deriva e famiglie rare richiedono ancora più prudenza.</p>
-      <p class="fineprint">La confidenza prodotta da un LLM non viene presentata come probabilità calibrata. Il Safety Governor usa evidenza locale collegata tramite HMAC: la mancanza di dati lascia invariato il filtro ordinario, mentre errori concreti e ripetuti limitano soltanto la famiglia interessata. Il Cestino diretto ordinario resta indipendente con vincoli di modello, calibrazione, policy e conferma. Il Governor stesso ottiene autorità sul Cestino soltanto con un modello supportato e almeno 299 revisioni conclusive senza errori sia globalmente sia nella famiglia. Eliminazione permanente e svuotamento del Cestino non sono mai autorizzati.</p>
+      <p class="fineprint">Il punteggio di affidabilità prodotto da un modello linguistico non viene presentato come probabilità calibrata. Il Safety Governor usa prove locali collegate tramite HMAC: la mancanza di dati lascia invariato il filtro ordinario, mentre errori concreti e ripetuti limitano soltanto la famiglia interessata. Il Cestino diretto ordinario resta indipendente e richiede modello, calibrazione, regole e conferma adeguati. Il Governor ottiene autorità sul Cestino soltanto con un modello supportato e almeno 299 revisioni conclusive senza errori sia globalmente sia nella famiglia. Eliminazione permanente e svuotamento del Cestino non sono mai autorizzati.</p>
     </section>
 
     <section id="modelli" class="wrap">
@@ -103,20 +103,20 @@
       <h2>Accessibile su hardware diverso, senza fingere che tutti i modelli siano uguali.</h2>
       <div class="grid">
         <article class="panel"><div class="number">LEGGERO · 12 GB</div><h3>Qwen 8B</h3><p>Più accessibile e rapido. Soglia operativa 0,97 e sola Quarantena perché ha confuso più facilmente pubblicità legittima e spam.</p></article>
-        <article class="panel"><div class="number">BILANCIATO · 16 GB</div><h3>Gemma 12B</h3><p>Compromesso MLX su Apple Silicon nella prima integrazione. Soglia 0,95 e sola Quarantena finché il corpus non cresce.</p></article>
+        <article class="panel"><div class="number">BILANCIATO · 16 GB</div><h3>Gemma 12B</h3><p>Compromesso MLX su Apple Silicon nella prima integrazione. Soglia 0,95 e sola Quarantena finché la raccolta di prova non cresce.</p></article>
         <article class="panel"><div class="number">CONSIGLIATO · 24 GB</div><h3>Gemma 26B-A4B</h3><p>Profilo corrente di qualità. Cestino diretto disponibile soltanto dopo calibrazione e conferma, mai come impostazione predefinita.</p></article>
       </div>
       <table class="comparison">
         <thead><tr><th>Misura preliminare</th><th>Qwen 8B</th><th>Gemma 12B</th><th>Gemma 26B-A4B</th></tr></thead>
         <tbody><tr><td>Lotto sintetico a freddo</td><td>≈ 5,4 s</td><td>≈ 8,7 s</td><td>≈ 9,7 s</td></tr><tr><td>Picco annotato</td><td>non misurato</td><td>11,2 GB</td><td>14,7 GB</td></tr></tbody>
       </table>
-      <p class="fineprint">Misure su un singolo ambiente, inclusive di caricamento e scaricamento per cinque messaggi sintetici. Non rappresentano velocità universale né qualità sufficiente per una release.</p>
+      <p class="fineprint">Misure ottenute in un singolo ambiente, comprendendo caricamento e scaricamento del modello per cinque messaggi sintetici. Non rappresentano una velocità universale né dimostrano una qualità sufficiente per una versione stabile.</p>
     </section>
 
     <section class="wrap">
       <div class="eyebrow">Interfaccia</div>
       <h2>Controlli leggibili, account compartimentati.</h2>
-      <p class="section-intro">Ogni account conserva modello, soglie, quiz, destinazione e schedule indipendenti. Una dashboard operativa dedicata mostra analisi completate, spostamenti reversibili in Quarantena, messaggi sospetti protetti, prove verificate e moduli realmente attivi durante la scansione. Legge registri aggregati privati senza riaprire i messaggi.</p>
+      <p class="section-intro">Ogni account conserva modello, soglie, quiz, destinazione e pianificazione indipendenti. Un pannello operativo dedicato mostra analisi completate, spostamenti reversibili in Quarantena, messaggi sospetti protetti, prove verificate e moduli realmente attivi durante la scansione. Legge registri aggregati privati senza riaprire i messaggi.</p>
       <figure class="screenshot"><img src="../assets/inboxlume-settings-it.png" alt="Interfaccia italiana di InboxLume con account sintetici e impostazioni locali"><figcaption class="fineprint">Schermata generata con account e stati sintetici; nessun dato email reale.</figcaption></figure>
     </section>
 
@@ -124,16 +124,16 @@
       <div class="callout">
         <div class="eyebrow">Stato del progetto</div>
         <h2>Anteprima pubblica di sviluppo.</h2>
-        <p>Il sorgente e questo sito sono pubblici con licenza Apache-2.0. La base Gmail/Yahoo, i profili modello, la GUI e la pianificazione esistono, mentre il release gate separato resta chiuso fino a funzioni concordate, revisione di sicurezza e pacchetti verificati.</p>
+        <p>Il codice sorgente e questo sito sono pubblici con licenza Apache-2.0. La base Gmail/Yahoo, i profili modello, l'interfaccia grafica e la pianificazione esistono, mentre il controllo di pubblicazione separato resta chiuso fino a funzioni concordate, revisione di sicurezza e pacchetti verificati.</p>
         <div class="status-list">
-          <div class="status-item">Scansione Inbox one-shot e Quarantena reversibile</div>
+          <div class="status-item">Scansione della Posta in arrivo avviata su richiesta e Quarantena reversibile</div>
           <div class="status-item">Più account Gmail/Yahoo con stato separato</div>
           <div class="status-item">Audit privacy del repository e test multipiattaforma predisposti</div>
           <div class="status-item">Safety Governor personale: restrizioni adattive per famiglia e autorità qualificata separata sul Cestino</div>
-          <div class="status-item">Protezione locale antiphishing e dashboard operativa separata per account</div>
+          <div class="status-item">Protezione locale antiphishing e pannello operativo separato per account</div>
           <div class="status-item">LumeGraph, Proof of Obsolescence operativa, deriva temporale e backtest storico versionato implementati localmente</div>
           <div class="status-item future">Perturbazioni controfattuali: ricerca futura</div>
-          <div class="status-item future">Baseline personale dei mittenti e LumeReply: non ancora implementati</div>
+          <div class="status-item future">Profilo personale dei mittenti e LumeReply: non ancora implementati</div>
         </div>
       </div>
     </section>
@@ -142,7 +142,7 @@
   <footer>
     <div class="wrap footer-grid">
       <div><a class="brand" href="#top"><span class="brand-mark">IL</span><strong>InboxLume</strong></a></div>
-      <div class="privacy-note">Nessun analytics, cookie, font remoto o script di terze parti. Questa è un'anteprima pubblica di sviluppo sanificata, non una release supportata. Sorgente e documentazione sono distribuiti con licenza Apache-2.0.</div>
+      <div class="privacy-note">Nessun servizio di analisi, cookie, font remoto o script di terze parti. Questa è un'anteprima pubblica di sviluppo sanificata, non una versione installabile supportata. Codice sorgente e documentazione sono distribuiti con licenza Apache-2.0.</div>
     </div>
   </footer>
 </body>

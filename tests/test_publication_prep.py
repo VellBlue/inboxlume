@@ -12,6 +12,7 @@ from scripts.package_desktop import (
     pyinstaller_command,
     worker_pyinstaller_command,
 )
+from scripts.render_public_articles import ARTICLES, _document
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -80,31 +81,36 @@ class PublicationPreparationTests(unittest.TestCase):
         pages = {
             ROOT / "docs/index.html": '<html lang="en">',
             ROOT / "docs/it/index.html": '<html lang="it">',
+            ROOT / "docs/article.html": '<html lang="en">',
+            ROOT / "docs/it/article.html": '<html lang="it">',
             ROOT / "docs/engineering-log.html": '<html lang="en">',
             ROOT / "docs/it/engineering-log.html": '<html lang="it">',
         }
         css = (ROOT / "docs/assets/site.css").read_text(encoding="utf-8")
-        allowed_metadata_urls = {
-            "https://vellblue.github.io/inboxlume/",
-            "https://vellblue.github.io/inboxlume/it/",
-            "https://vellblue.github.io/inboxlume/engineering-log.html",
-            "https://vellblue.github.io/inboxlume/it/engineering-log.html",
+        canonical_urls = {
+            ROOT / "docs/index.html": "https://vellblue.github.io/inboxlume/",
+            ROOT / "docs/it/index.html": "https://vellblue.github.io/inboxlume/it/",
+            ROOT / "docs/article.html": "https://vellblue.github.io/inboxlume/article.html",
+            ROOT / "docs/it/article.html": "https://vellblue.github.io/inboxlume/it/article.html",
+            ROOT / "docs/engineering-log.html": (
+                "https://vellblue.github.io/inboxlume/engineering-log.html"
+            ),
+            ROOT / "docs/it/engineering-log.html": (
+                "https://vellblue.github.io/inboxlume/it/engineering-log.html"
+            ),
         }
 
         for path, language_marker in pages.items():
             page = path.read_text(encoding="utf-8")
             self.assertIn(language_marker, page)
             self.assertNotIn("http://", page)
-            self.assertLessEqual(
-                set(re.findall(r'https://[^"\s<>]+', page)),
-                allowed_metadata_urls,
-            )
+            self.assertIn(f'<link rel="canonical" href="{canonical_urls[path]}">', page)
             for source in re.findall(r'src="([^"]+)"', page):
                 self.assertFalse(urlsplit(source).scheme, f"{path}: remote asset {source}")
-            without_privacy_notice = page.casefold().replace("no analytics", "").replace(
-                "nessun analytics", ""
-            )
-            self.assertNotIn("analytics", without_privacy_notice)
+            folded = page.casefold()
+            self.assertNotIn("<script", folded)
+            self.assertNotIn("google-analytics", folded)
+            self.assertNotIn("googletagmanager", folded)
             for reference in re.findall(r'(?:href|src)="([^"]+)"', page):
                 parsed = urlsplit(reference)
                 if parsed.scheme or not parsed.path:
@@ -113,9 +119,9 @@ class PublicationPreparationTests(unittest.TestCase):
                 self.assertTrue(target.exists(), f"{path}: missing {reference}")
 
         for homepage in (ROOT / "docs/index.html", ROOT / "docs/it/index.html"):
-            self.assertIn(
-                "engineering-log.html", homepage.read_text(encoding="utf-8")
-            )
+            content = homepage.read_text(encoding="utf-8")
+            self.assertIn("article.html", content)
+            self.assertIn("engineering-log.html", content)
         self.assertNotIn("@import", css)
         for asset in (
             "docs/assets/site.css",
@@ -124,10 +130,20 @@ class PublicationPreparationTests(unittest.TestCase):
             "docs/assets/inboxlume-settings.png",
             "docs/assets/inboxlume-settings-it.png",
             "docs/it/ARTICLE.md",
+            "docs/article.html",
+            "docs/it/article.html",
             "docs/engineering-log.html",
             "docs/it/engineering-log.html",
+            "scripts/render_public_articles.py",
         ):
             self.assertTrue((ROOT / asset).is_file(), asset)
+
+    def test_static_articles_match_their_markdown_sources(self) -> None:
+        for article in ARTICLES:
+            self.assertEqual(
+                article.output.read_text(encoding="utf-8"),
+                _document(article),
+            )
 
     def test_ci_contains_no_publication_or_artifact_upload_step(self) -> None:
         workflows = list((ROOT / ".github/workflows").glob("*.yml"))

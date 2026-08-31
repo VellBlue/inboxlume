@@ -4,7 +4,7 @@
 >
 > Diario di ingegneria, 31 agosto 2026. Stato: raccoglie osservazioni da un
 > repository di sviluppo, non da una release.
-> [Torna all'articolo principale](ARTICLE.md).
+> [Torna all'articolo principale](article.html).
 
 I documenti di progetto descrivono come un sistema dovrebbe comportarsi. Questo
 registra invece cosa è accaduto la prima volta che InboxLume ha incontrato un
