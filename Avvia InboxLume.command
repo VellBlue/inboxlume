@@ -14,8 +14,11 @@ if [[ -x "$python_path" ]]; then
         # Alcune cartelle sincronizzate marcano wheel e file .pth come hidden.
         # Python e Qt possono quindi ignorare moduli o plugin perfettamente
         # presenti. Ripristinare il flag non modifica contenuti o credenziali.
-        for path in "$site_packages"/*.pth(N); do
-            /usr/bin/chflags nohidden "$path" 2>/dev/null || true
+        # ``path`` is tied to ``PATH`` in zsh: naming the loop variable that
+        # would replace the command search path with a file name, and every
+        # later command resolved by name would stop being found.
+        for pth_file in "$site_packages"/*.pth(N); do
+            /usr/bin/chflags nohidden "$pth_file" 2>/dev/null || true
         done
         if [[ -d "$site_packages/PySide6/Qt" ]]; then
             /usr/bin/chflags -R nohidden \
