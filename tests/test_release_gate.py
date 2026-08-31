@@ -19,15 +19,19 @@ class ReleaseGateTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def test_repository_is_deliberately_blocked_before_publication(self) -> None:
+    def test_public_development_repo_does_not_open_the_app_release_gate(self) -> None:
         gate = load_gate(ROOT / "release/release-gate.json")
         ready, blockers = release_status(gate, "0.5.0.dev0")
 
         self.assertFalse(ready)
-        self.assertIn("publication_authorized", blockers)
         self.assertIn("approved_feature_scope_complete", blockers)
-        self.assertIn("english_italian_public_surface_complete", blockers)
+        self.assertIn("cross_platform_packages_verified", blockers)
+        self.assertIn("security_review_complete", blockers)
         self.assertIn("stable_version", blockers)
+        self.assertNotIn("publication_authorized", blockers)
+        self.assertNotIn("license_selected", blockers)
+        self.assertNotIn("english_italian_public_surface_complete", blockers)
+        self.assertNotIn("sanitized_assets_approved", blockers)
 
     def test_ready_requires_every_gate_and_a_stable_version(self) -> None:
         gate = {
