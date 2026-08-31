@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import imaplib
 import re
-import ssl
 from dataclasses import dataclass
 from enum import StrEnum
 
+from ..tls_trust import default_tls_context
 from .contracts import INBOX_FOLDER, YAHOO_IMAP_HOST, YAHOO_IMAP_PORT
 from .yahoo import (
     YAHOO_QUARANTINE_FOLDER,
@@ -57,12 +57,10 @@ class YahooQuarantineExecutor:
         client: imaplib.IMAP4_SSL | None = None,
     ) -> None:
         if client is None:
-            context = ssl.create_default_context()
-            context.minimum_version = ssl.TLSVersion.TLSv1_2
             client = imaplib.IMAP4_SSL(
                 YAHOO_IMAP_HOST,
                 YAHOO_IMAP_PORT,
-                ssl_context=context,
+                ssl_context=default_tls_context(),
                 timeout=30,
             )
         self._client = client
@@ -186,12 +184,10 @@ class YahooThreatMarkerExecutor:
         client: imaplib.IMAP4_SSL | None = None,
     ) -> None:
         if client is None:
-            context = ssl.create_default_context()
-            context.minimum_version = ssl.TLSVersion.TLSv1_2
             client = imaplib.IMAP4_SSL(
                 YAHOO_IMAP_HOST,
                 YAHOO_IMAP_PORT,
-                ssl_context=context,
+                ssl_context=default_tls_context(),
                 timeout=30,
             )
         self._client = client
@@ -274,12 +270,10 @@ class YahooDirectTrashExecutor:
         client: imaplib.IMAP4_SSL | None = None,
     ) -> None:
         if client is None:
-            context = ssl.create_default_context()
-            context.minimum_version = ssl.TLSVersion.TLSv1_2
             client = imaplib.IMAP4_SSL(
                 YAHOO_IMAP_HOST,
                 YAHOO_IMAP_PORT,
-                ssl_context=context,
+                ssl_context=default_tls_context(),
                 timeout=30,
             )
         self._client = client

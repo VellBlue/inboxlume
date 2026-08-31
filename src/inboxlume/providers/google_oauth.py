@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Callable, Protocol
 
 from ..credential_store import SystemCredentialStore
+from ..tls_trust import https_handler
 from .contracts import GMAIL_MODIFY_SCOPE, GMAIL_READONLY_SCOPE
 
 
@@ -396,6 +397,7 @@ class DirectOAuthTokenTransport:
         self.max_response_bytes = max_response_bytes
         self._opener = urllib.request.build_opener(
             urllib.request.ProxyHandler({}),
+            https_handler(),
             _NoRedirectHandler(),
         )
 

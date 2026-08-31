@@ -8,12 +8,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 from inboxlume.diagnostics import diagnostic_path, latest_diagnostic
+from inboxlume.tls_trust import TlsTrustUnavailable
 from inboxlume.desktop_worker import (
+    WORKER_FAILURE_MESSAGES,
     build_parser,
     execute_scan,
     execute_shadow_review,
     execute_threat_backtest,
     main,
+    worker_failure_code,
 )
 from inboxlume.threat_signals import (
     SemanticThreatAssessment,
@@ -193,6 +196,30 @@ class DesktopWorkerTests(unittest.TestCase):
         self.assertEqual(record["phase"], "threat_protection")
         self.assertEqual(record["processed"], 9)
         self.assertEqual(record["mailbox_outcome"], "unchanged")
+
+    def test_missing_trust_material_is_not_reported_as_an_account_problem(self) -> None:
+        missing = TlsTrustUnavailable("archivio di certificati locale vuoto")
+        wrapped = RuntimeError("connessione IMAP Yahoo non disponibile")
+        wrapped.__cause__ = missing
+        contextual = RuntimeError("richiesta Gmail fallita")
+        contextual.__context__ = missing
+
+        for label, error in (
+            ("diretto", missing),
+            ("avvolto", wrapped),
+            ("contestuale", contextual),
+        ):
+            with self.subTest(case=label):
+                self.assertEqual(worker_failure_code(error), "tls_trust_unavailable")
+
+        message = WORKER_FAILURE_MESSAGES["tls_trust_unavailable"]
+        self.assertIn("not the problem", message)
+
+    def test_an_ordinary_transport_failure_stays_a_connection_problem(self) -> None:
+        self.assertEqual(
+            worker_failure_code(ConnectionResetError("connessione azzerata")),
+            "provider_connection",
+        )
 
     def test_threat_backtest_needs_no_account_and_streams_aggregate_progress(self) -> None:
         backend = FakeThreatBackend()

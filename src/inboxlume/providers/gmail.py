@@ -14,6 +14,7 @@ from typing import Any, Callable, Protocol
 
 from ..models import EmailRecord, ProviderKind
 from ..sanitizer import html_to_visible_text, normalize_plain_text
+from ..tls_trust import https_handler
 from .contracts import GMAIL_READONLY_SCOPE, READ_ONLY_CAPABILITIES, ReadOnlyCapability
 
 
@@ -107,6 +108,7 @@ class DirectHttpsJsonTransport:
         self.max_response_bytes = max_response_bytes
         self._opener = urllib.request.build_opener(
             urllib.request.ProxyHandler({}),
+            https_handler(),
             _NoRedirectHandler(),
         )
 

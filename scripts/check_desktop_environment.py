@@ -21,19 +21,28 @@ def python_version_supported(version: tuple[int, int]) -> bool:
 
 
 def certificate_store_available() -> bool:
-    """Report whether this interpreter can verify a normal TLS certificate.
+    """Report whether a provider certificate can be verified at all.
 
-    A framework Python installed without its certificate step has an empty CA
-    store.  Every provider connection then fails verification, and the provider
-    reports it as an unreachable account, which sends the user looking for a
-    mailbox problem that does not exist.
+    This asks the application's own trust module, so the preflight accepts
+    exactly what the providers will accept: the interpreter's store when it has
+    one, and the bundled fallback when it does not.  A framework Python
+    installed without its certificate step leaves an empty store, and every
+    provider connection then fails verification against a genuine certificate.
     """
 
     try:
-        context = ssl.create_default_context()
-    except (OSError, ssl.SSLError):
+        from inboxlume.tls_trust import default_tls_context
+    except ImportError:
+        try:
+            context = ssl.create_default_context()
+        except (OSError, ssl.SSLError):
+            return False
+        return context.cert_store_stats().get("x509_ca", 0) > 0
+    try:
+        default_tls_context()
+    except (OSError, RuntimeError, ssl.SSLError):
         return False
-    return context.cert_store_stats().get("x509_ca", 0) > 0
+    return True
 
 
 def environment_errors(project_root: Path) -> tuple[str, ...]:
@@ -44,16 +53,18 @@ def environment_errors(project_root: Path) -> tuple[str, ...]:
             "Python non supportato: serve una versione da 3.11 a 3.13"
         )
 
-    if not certificate_store_available():
-        errors.append(
-            "archivio certificati TLS assente: nessun provider e verificabile"
-        )
-
     source_root = project_root / "src"
     if not (source_root / "inboxlume" / "__init__.py").is_file():
         errors.append("sorgenti InboxLume non trovati")
     elif str(source_root) not in sys.path:
         sys.path.insert(0, str(source_root))
+
+    # Checked after the sources are importable so the preflight can ask the
+    # application's own trust module rather than guess on its behalf.
+    if not certificate_store_available():
+        errors.append(
+            "archivio certificati TLS assente: nessun provider e verificabile"
+        )
 
     try:
         metadata = tomllib.loads(

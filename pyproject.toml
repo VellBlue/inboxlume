@@ -8,7 +8,14 @@ version = "0.5.0.dev0"
 description = "Local, private AI for understanding and safely maintaining email"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
-dependencies = []
+dependencies = [
+  # Verifying a provider certificate must not depend on how the user's
+  # interpreter happens to be set up: a framework Python installed without its
+  # certificate step, or a packaged build on a machine with no system bundle,
+  # leaves an empty store and every connection then fails against a genuine
+  # certificate.  The interpreter's own store still wins when it has one.
+  "certifi>=2024.2",
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: MacOS X",

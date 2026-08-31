@@ -27,6 +27,7 @@ from .diagnostics import (
     diagnostic_from_summary,
     diagnostic_path,
 )
+from .tls_trust import TlsTrustUnavailable
 from .direct_trash_guard import (
     require_direct_trash_authority,
     require_direct_trash_model,
@@ -70,6 +71,10 @@ WORKER_FAILURE_MESSAGES: dict[str, str] = {
         "The provider connection stopped before the operation completed. Check "
         "the account connection and retry."
     ),
+    "tls_trust_unavailable": (
+        "This computer has no certificate authorities available, so no provider "
+        "can be verified. The account itself is not the problem."
+    ),
     "invalid_configuration": (
         "The saved local configuration is invalid. Save the preferences again "
         "and retry."
@@ -90,6 +95,17 @@ WORKER_FAILURE_MESSAGES: dict[str, str] = {
 
 def worker_failure_code(error: BaseException) -> str:
     """Map an exception to a stable, privacy-safe operational category."""
+
+    # Missing trust material surfaces through a provider transport, so without
+    # this the failure reads as an unreachable account and sends the user
+    # looking for a mailbox problem that does not exist.
+    seen: set[int] = set()
+    cause: BaseException | None = error
+    while cause is not None and id(cause) not in seen:
+        seen.add(id(cause))
+        if isinstance(cause, TlsTrustUnavailable):
+            return "tls_trust_unavailable"
+        cause = cause.__cause__ or cause.__context__
 
     detail = str(error).casefold()
     module = type(error).__module__.split(".", 1)[0].casefold()

@@ -13,6 +13,7 @@ from email.message import Message
 from typing import Callable, Protocol
 
 from ..models import EmailRecord, ProviderKind
+from ..tls_trust import default_tls_context
 from ..sanitizer import normalize_plain_text, sanitize_body
 from .contracts import (
     INBOX_FOLDER,
@@ -229,12 +230,10 @@ class DirectYahooImapReadTransport:
 
     @staticmethod
     def _new_client() -> imaplib.IMAP4_SSL:
-        context = ssl.create_default_context()
-        context.minimum_version = ssl.TLSVersion.TLSv1_2
         return imaplib.IMAP4_SSL(
             YAHOO_IMAP_HOST,
             YAHOO_IMAP_PORT,
-            ssl_context=context,
+            ssl_context=default_tls_context(),
             timeout=30,
         )
 

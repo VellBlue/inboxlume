@@ -4,6 +4,7 @@ import ast
 import unittest
 from pathlib import Path
 
+from inboxlume.desktop_worker import WORKER_FAILURE_MESSAGES
 from inboxlume.i18n import ITALIAN_UI
 
 
@@ -26,6 +27,17 @@ class I18nTests(unittest.TestCase):
         }
 
         self.assertEqual(canonical_messages - set(ITALIAN_UI), set())
+
+    def test_every_worker_failure_message_has_an_italian_translation(self) -> None:
+        # These reach the user through the GUI event payload rather than a
+        # literal call, so the scan above cannot see them.
+        untranslated = {
+            code
+            for code, message in WORKER_FAILURE_MESSAGES.items()
+            if message not in ITALIAN_UI
+        }
+
+        self.assertEqual(untranslated, set())
 
 
 if __name__ == "__main__":
