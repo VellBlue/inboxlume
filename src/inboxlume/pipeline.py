@@ -446,6 +446,19 @@ def prepare_shadow_review(
     return candidates
 
 
+def _message_identity(message: EmailRecord) -> str:
+    """Return the RFC Message-ID header, which survives a folder move."""
+
+    return next(
+        (
+            str(value)
+            for key, value in message.headers.items()
+            if str(key).casefold() == "message-id"
+        ),
+        "",
+    )
+
+
 def prepare_quarantine_shadow_review(
     policy: AccountPolicy,
     mailbox: ReadOnlyMailbox,
@@ -505,6 +518,16 @@ def prepare_quarantine_shadow_review(
                 uid_validity,
                 uid,
             )
+            if mapped is None:
+                # The destination pointer is only available when the provider
+                # returns it. The RFC Message-ID survives the move regardless,
+                # so a proposal stays reviewable without it.
+                mapped = store.shadow_record_for_provider_identity(
+                    policy.account_id,
+                    policy.provider,
+                    _message_identity(message),
+                    scan_profile,
+                )
             if mapped is None:
                 # A message manually placed in a similarly named folder is
                 # not InboxLume evidence and must never qualify the Governor.

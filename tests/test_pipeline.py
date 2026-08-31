@@ -1179,6 +1179,99 @@ class DryRunPipelineTests(unittest.TestCase):
         self.assertNotIn(b"private@example.invalid", database_bytes)
         self.assertNotIn(b"Testo privato", database_bytes)
 
+    def test_a_moved_proposal_stays_reviewable_after_its_uid_changes(self) -> None:
+        policy = load_policies(ROOT / "config/accounts.example.json")[
+            "yahoo_personale"
+        ]
+        profile = "gemma26-policy-v2"
+        identity = "<moved-proposal@example.invalid>"
+        in_inbox = make_message(
+            account_id=policy.account_id,
+            provider=ProviderKind.YAHOO,
+            message_id="777:41",
+            headers={"Message-ID": identity},
+            subject="Promozione",
+            body_text="Testo promozionale.",
+        )
+        # A move gives the message a new UID in the destination folder, so the
+        # scan's identity no longer matches anything the review can see.
+        after_move = make_message(
+            account_id=policy.account_id,
+            provider=ProviderKind.YAHOO,
+            message_id="999:7",
+            headers={"Message-ID": identity},
+            subject="Promozione",
+            body_text="Testo promozionale.",
+        )
+        classification = Classification(
+            EmailCategory.ADVERTISING, 0.96, ("test",), "test"
+        )
+        quarantine = PolicyDecision(PolicyAction.QUARANTINE, ("ordinary_cleanup",))
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "moved.sqlite3"
+            store = PreferenceStore(database, b"z" * 32)
+            store.record_shadow_scan(
+                in_inbox,
+                classification,
+                quarantine,
+                profile,
+                NOW,
+                policy_safety_fingerprint(policy),
+            )
+
+            self.assertIsNone(
+                store.shadow_record_for_message_id(
+                    policy.account_id,
+                    ProviderKind.YAHOO,
+                    after_move.message_id,
+                    profile,
+                )
+            )
+
+            candidates = prepare_quarantine_shadow_review(
+                policy,
+                FakeQuarantineMailbox([after_move]),
+                store,
+                NOW,
+                5,
+                10,
+                profile,
+            )
+            database_bytes = database.read_bytes()
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].message.message_id, "999:7")
+        # The identity is evidence, not text: it must never be stored readable.
+        self.assertNotIn(identity.encode(), database_bytes)
+
+    def test_a_message_never_proposed_stays_out_of_the_review(self) -> None:
+        policy = load_policies(ROOT / "config/accounts.example.json")[
+            "yahoo_personale"
+        ]
+        stranger = make_message(
+            account_id=policy.account_id,
+            provider=ProviderKind.YAHOO,
+            message_id="999:8",
+            headers={"Message-ID": "<never-proposed@example.invalid>"},
+            subject="Estraneo",
+            body_text="Messaggio mai proposto.",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            store = PreferenceStore(Path(directory) / "stranger.sqlite3", b"k" * 32)
+            candidates = prepare_quarantine_shadow_review(
+                policy,
+                FakeQuarantineMailbox([stranger]),
+                store,
+                NOW,
+                5,
+                10,
+                "gemma26-policy-v2",
+            )
+
+        # Relocating by Message-ID must not turn a manually filed message into
+        # InboxLume evidence.
+        self.assertEqual(candidates, [])
+
     def test_verified_obsolescence_recovers_review_only_for_quarantine(self) -> None:
         message = make_message(message_id="obsolete-review")
         mailbox = ProgressiveFakeMailbox([message])

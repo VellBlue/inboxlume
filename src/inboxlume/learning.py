@@ -3092,6 +3092,42 @@ class PreferenceStore:
             return None
         return str(row[0]), str(row[1])
 
+    def shadow_record_for_provider_identity(
+        self,
+        account_id: str,
+        provider: ProviderKind,
+        provider_identity: str,
+        scan_profile: str,
+    ) -> tuple[str, str] | None:
+        """Resolve a proposal whose provider UID changed when it was moved.
+
+        A move gives the message a new UID in the destination folder, so the
+        identity recorded during the scan no longer matches and the proposal
+        would look absent.  The RFC Message-ID stays stable across the move and
+        is already stored as an HMAC, never as header text.
+        """
+
+        identity = unicodedata.normalize("NFKC", provider_identity).strip().casefold()
+        if not 3 <= len(identity) <= 998 or "\r" in identity or "\n" in identity:
+            return None
+        identity_hash = self._hash(account_id, f"provider-identity:{identity}")
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                """
+                SELECT ss.category, ss.suggested_action
+                FROM provider_identity AS pi
+                JOIN shadow_scan AS ss
+                  ON ss.account_id = pi.account_id
+                 AND ss.message_hash = pi.message_hash
+                WHERE pi.account_id = ? AND pi.provider = ?
+                  AND pi.identity_hash = ? AND ss.scan_profile = ?
+                """,
+                (account_id, provider.value, identity_hash, scan_profile),
+            ).fetchone()
+        if row is None:
+            return None
+        return str(row[0]), str(row[1])
+
     def shadow_recovery_expected_unread(
         self,
         account_id: str,

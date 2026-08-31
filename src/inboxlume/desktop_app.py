@@ -128,6 +128,10 @@ from .settings import (
 APP_VERSION = "0.5.0-dev"
 BRAND_MARK_FILE = "brand_mark.svg"
 BRAND_MARK_SIZE = 48
+# Upper bounds accepted by the review preparation, used so the action is
+# bounded only by safety and never by an unrelated preference.
+REVIEW_CANDIDATE_LIMIT = 500
+REVIEW_SEARCH_LIMIT = 1000
 
 
 STYLE_SHEET = """
@@ -3437,12 +3441,16 @@ class SettingsWindow(QMainWindow):
         account = self.settings.account(self.current_account_id)
         arguments = self._worker_common_arguments("shadow-review", account)
         arguments.extend(self._worker_model_arguments(account))
+        # The review must cover the proposals a scan actually produced, so it
+        # takes the whole reviewable set up to the safety cap. Borrowing the
+        # quiz size would hide most of a large batch behind an unrelated
+        # preference.
         arguments.extend(
             [
                 "--limit",
-                str(account.quiz_size),
+                str(REVIEW_CANDIDATE_LIMIT),
                 "--search-limit",
-                "500",
+                str(REVIEW_SEARCH_LIMIT),
             ]
         )
         dialog = QuizDialog(self.settings.language, self, review_mode=True)

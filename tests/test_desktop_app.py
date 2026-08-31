@@ -14,6 +14,8 @@ try:
     from inboxlume.desktop_app import (
         BRAND_MARK_FILE,
         BRAND_MARK_SIZE,
+        REVIEW_CANDIDATE_LIMIT,
+        REVIEW_SEARCH_LIMIT,
         SettingsWindow,
         _brand_mark_pixmap,
     )
@@ -348,6 +350,24 @@ class DesktopAppTests(unittest.TestCase):
             self.assertFalse(window.dirty)
             window.dirty = False
             window.close()
+
+
+@unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
+class ReviewScopeTests(unittest.TestCase):
+    def test_the_review_is_bounded_by_safety_not_by_the_quiz_size(self) -> None:
+        source = (
+            Path(__file__).resolve().parents[1] / "src/inboxlume/desktop_app.py"
+        ).read_text(encoding="utf-8")
+        start = source.index("def _start_shadow_review")
+        body = source[start : source.index("def _start_threat_backtest", start)]
+
+        # Borrowing the quiz size hid most of a large batch behind a setting
+        # that has nothing to do with reviewing proposals.
+        self.assertNotIn("quiz_size", body)
+        self.assertIn("REVIEW_CANDIDATE_LIMIT", body)
+        self.assertIn("REVIEW_SEARCH_LIMIT", body)
+        self.assertGreaterEqual(REVIEW_CANDIDATE_LIMIT, 500)
+        self.assertGreaterEqual(REVIEW_SEARCH_LIMIT, REVIEW_CANDIDATE_LIMIT)
 
 
 @unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
