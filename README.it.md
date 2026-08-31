@@ -102,7 +102,7 @@ reversibile. Non può promuovere direttamente al Cestino, ignorare un Tieni
 deterministico, eliminare definitivamente o svuotare il Cestino.
 
 Il prototipo precedente continua ad avviarsi con `Avvia Mail Guardian.command`; la
-nuova applicazione usa `Avvia InboxLume.command`. Gli identificatori tecnici delle
+nuova applicazione usa `Launch InboxLume.command`. Gli identificatori tecnici delle
 credenziali e le preferenze locali precedenti restano compatibili: il rebranding non
 richiede una nuova autorizzazione e non sposta né cancella dati dell'utente.
 
@@ -308,7 +308,7 @@ selezionano cosa analizzare, ma non autorizzano da sole quarantena o Cestino.
 
 ## Interfaccia semplice
 
-Aprire `Avvia InboxLume.command`. La schermata iniziale propone 50 email vecchie
+Aprire `Launch InboxLume.command`. La schermata iniziale propone 50 email vecchie
 per sessione, modificabili da 1 a 500 oppure impostabili su `Tutte le idonee`, un
 selettore separato `Gmail`/`Yahoo` e il pulsante `Avvia controllo con Gemma`.
 Il controllo è one-shot: Gemma classifica il lotto, viene chiusa e l'esecutore applica

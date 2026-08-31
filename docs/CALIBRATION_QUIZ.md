@@ -54,7 +54,7 @@ Il comando è esclusivamente interattivo e non è previsto per la schedulazione.
 Premendo `q` termina senza perdere le risposte già date. Rispondere due volte alla
 stessa email non duplica il suo peso.
 
-Conclusa la calibrazione iniziale, `Avvia InboxLume.command` viene riutilizzato
+Conclusa la calibrazione iniziale, `Launch InboxLume.command` viene riutilizzato
 per la revisione mirata delle proposte shadow. Non avvia un server web e comunica con
 il backend tramite pipe; anche questa revisione non modifica la casella.
 

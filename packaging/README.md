@@ -13,8 +13,8 @@ python scripts/package_desktop.py --build  # build unsigned del sistema corrente
 PyInstaller produce una GUI `onedir` sotto `release/staging/<sistema>`, esclusa
 da Git, e un worker console `InboxLumeWorker` dedicato dentro lo stesso bundle.
 Il worker è il solo processo usato per scansioni e attività native pianificate;
-include anche lo script MLX offline. Il prototipo `dist/Mail Guardian.app` e il
-bundle di sviluppo macOS non vengono usati né sovrascritti.
+include anche lo script MLX offline. Il bundle di sviluppo macOS non viene
+usato né sovrascritto.
 
 I template Windows e Linux contengono segnaposto deliberati per editore, GUID,
 licenza e namespace. Devono essere sostituiti soltanto dopo le relative decisioni.

@@ -220,7 +220,7 @@ class RosettaTranslationTests(unittest.TestCase):
         self.assertLess(plist.index("arm64", priority), plist.index("x86_64", priority))
 
     def test_both_launchers_restart_natively_before_doing_anything(self) -> None:
-        for name in ("macos/InboxLumeLauncher.sh", "Avvia InboxLume.command"):
+        for name in ("macos/InboxLumeLauncher.sh", "Launch InboxLume.command"):
             with self.subTest(launcher=name):
                 script = (self.ROOT / name).read_text(encoding="utf-8")
                 self.assertIn("sysctl.proc_translated", script)

@@ -52,8 +52,6 @@ packaging = [
 inboxlume = "inboxlume.cli:main"
 inboxlume-desktop = "inboxlume.desktop_app:main"
 inboxlume-scheduled = "inboxlume.scheduled_run:main"
-mail-guardian = "inboxlume.cli:main"
-mail-guardian-desktop = "inboxlume.desktop_app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
