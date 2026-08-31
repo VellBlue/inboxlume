@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from inboxlume.diagnostics import diagnostic_path, latest_diagnostic
 from inboxlume.desktop_worker import (
     build_parser,
     execute_scan,
@@ -144,6 +145,54 @@ class DesktopWorkerTests(unittest.TestCase):
         self.assertTrue(event["mailbox_changes_unknown"])
         self.assertEqual(event["processed_before_stop"], 2)
         self.assertNotIn("provider detail", output.getvalue())
+
+    def test_persisted_failure_record_states_where_the_scan_stopped(self) -> None:
+        output = io.StringIO()
+
+        def fail_after_mutation(args, stream):  # noqa: ANN001, ANN202, ARG001
+            args._worker_stage = "mailbox_actions"
+            args._mailbox_mutation_started = True
+            args._worker_processed = 17
+            raise OSError("provider detail must stay private")
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("inboxlume.desktop_worker.execute_scan", fail_after_mutation),
+            patch("sys.stdout", output),
+        ):
+            state_db = Path(directory) / "state.sqlite3"
+            exit_code = main(self._main_scan_arguments(state_db))
+            record = latest_diagnostic(diagnostic_path(state_db))
+
+        self.assertEqual(exit_code, 2)
+        assert record is not None
+        self.assertEqual(record["status"], "failed")
+        self.assertEqual(record["phase"], "mailbox_actions")
+        self.assertEqual(record["processed"], 17)
+        self.assertEqual(record["mailbox_outcome"], "unknown")
+
+    def test_persisted_failure_record_clears_a_mailbox_never_touched(self) -> None:
+        output = io.StringIO()
+
+        def fail_before_mutation(args, stream):  # noqa: ANN001, ANN202, ARG001
+            args._worker_stage = "threat_protection"
+            args._mailbox_mutation_started = False
+            args._worker_processed = 9
+            raise RuntimeError("timeout del processo MLX locale")
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("inboxlume.desktop_worker.execute_scan", fail_before_mutation),
+            patch("sys.stdout", output),
+        ):
+            state_db = Path(directory) / "state.sqlite3"
+            main(self._main_scan_arguments(state_db))
+            record = latest_diagnostic(diagnostic_path(state_db))
+
+        assert record is not None
+        self.assertEqual(record["phase"], "threat_protection")
+        self.assertEqual(record["processed"], 9)
+        self.assertEqual(record["mailbox_outcome"], "unchanged")
 
     def test_threat_backtest_needs_no_account_and_streams_aggregate_progress(self) -> None:
         backend = FakeThreatBackend()

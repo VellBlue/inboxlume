@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, TextIO
 
 from .credential_store import SystemCredentialStore
-from .desktop_worker import execute_scan
+from .desktop_worker import execute_scan, terminal_scan_receipt
 from .diagnostics import (
     append_diagnostic,
     diagnostic_for_terminal_status,
@@ -53,6 +53,7 @@ def run_scheduled_scan(
     *,
     executor: Callable[..., dict[str, Any]] = execute_scan,
     calibration_reader: Callable[[Path, str], Mapping[str, int]] | None = None,
+    arguments_sink: Callable[[Namespace], None] | None = None,
 ) -> dict[str, Any]:
     if not settings_path.is_absolute():
         raise ValueError("il percorso impostazioni pianificate deve essere assoluto")
@@ -112,6 +113,11 @@ def run_scheduled_scan(
         trigger="scheduled",
         operation_lock_held=True,
     )
+    # The scan annotates this namespace as it advances, so handing it to the
+    # caller before the run starts lets a later failure record the phase and
+    # mailbox outcome actually reached instead of a default.
+    if arguments_sink is not None:
+        arguments_sink(arguments)
     with ScheduledRunLock(lock_path):
         # Per-message progress belongs in the interactive GUI, not journald or
         # scheduled-task logs. The persisted diagnostic remains aggregate-only.
@@ -152,12 +158,23 @@ def _write_error(stream: TextIO, code: str) -> None:
     stream.flush()
 
 
-def _record_scheduled_failure(account_id: str, settings_path: Path) -> None:
+def _record_scheduled_failure(
+    account_id: str,
+    settings_path: Path,
+    worker_arguments: Namespace | None = None,
+) -> None:
     try:
         settings = SettingsStore(settings_path).load()
         account = settings.account(account_id)
         project_root = Path(__file__).resolve().parents[2]
         state_db = state_database_path(settings_path, project_root, account)
+        # A failure raised before the scan namespace exists cannot have touched
+        # the mailbox: the run never got past its own startup.
+        phase, processed, mailbox_outcome = (
+            ("startup", 0, "unchanged")
+            if worker_arguments is None
+            else terminal_scan_receipt(worker_arguments)
+        )
         append_diagnostic(
             diagnostic_path(state_db),
             diagnostic_for_terminal_status(
@@ -166,6 +183,9 @@ def _record_scheduled_failure(account_id: str, settings_path: Path) -> None:
                 provider=account.provider.value,
                 destination=account.destination.value,
                 scan_profile=scan_profile_for_model(account.model_profile),
+                phase=phase,
+                processed=processed,
+                mailbox_outcome=mailbox_outcome,
                 governor_requested=account.safety_governor_enforced,
             ),
         )
@@ -175,10 +195,20 @@ def _record_scheduled_failure(account_id: str, settings_path: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    started: list[Namespace] = []
     try:
-        run_scheduled_scan(args.account, args.settings, sys.stdout)
+        run_scheduled_scan(
+            args.account,
+            args.settings,
+            sys.stdout,
+            arguments_sink=started.append,
+        )
     except Exception:  # noqa: BLE001 - final privacy-safe scheduler boundary
-        _record_scheduled_failure(args.account, args.settings)
+        _record_scheduled_failure(
+            args.account,
+            args.settings,
+            started[-1] if started else None,
+        )
         _write_error(sys.stdout, "scheduled_run_failed")
         return 2
     return 0

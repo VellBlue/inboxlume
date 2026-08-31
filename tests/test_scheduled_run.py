@@ -9,7 +9,13 @@ from unittest.mock import patch
 
 from inboxlume.models import ProviderKind
 from inboxlume.local_models import LocalModelProfile
-from inboxlume.scheduled_run import ScheduledRunLock, main, run_scheduled_scan
+from inboxlume.diagnostics import diagnostic_path, latest_diagnostic
+from inboxlume.scheduled_run import (
+    ScheduledRunLock,
+    _record_scheduled_failure,
+    main,
+    run_scheduled_scan,
+)
 from inboxlume.settings import (
     AccountSettings,
     ApplicationSettings,
@@ -137,6 +143,70 @@ class ScheduledRunTests(unittest.TestCase):
             with ScheduledRunLock(path):
                 self.assertTrue(path.exists())
             self.assertTrue(path.exists())
+
+    def test_scheduled_failure_record_states_where_the_scan_stopped(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            settings_path = Path(directory) / "settings.json"
+            account = AccountSettings(
+                "yahoo_test",
+                ProviderKind.YAHOO,
+                model_profile=LocalModelProfile.GEMMA12,
+                schedule=ScheduleSettings(enabled=True, hour=3),
+            )
+            SettingsStore(settings_path).save(ApplicationSettings((account,)))
+            started: list[object] = []
+
+            def executor(args, output_stream):  # noqa: ANN001
+                args._worker_stage = "mailbox_actions"
+                args._mailbox_mutation_started = True
+                args._worker_processed = 23
+                raise OSError("provider detail must stay private")
+
+            with self.assertRaises(OSError):
+                run_scheduled_scan(
+                    "yahoo_test",
+                    settings_path,
+                    io.StringIO(),
+                    executor=executor,
+                    calibration_reader=lambda *_: {
+                        "keep": 3,
+                        "dont_keep": 30,
+                        "unsure": 7,
+                    },
+                    arguments_sink=started.append,
+                )
+
+            self.assertEqual(len(started), 1)
+            _record_scheduled_failure("yahoo_test", settings_path, started[-1])
+            state_db = settings_path.parent / "accounts/yahoo_test/preferences.sqlite3"
+            record = latest_diagnostic(diagnostic_path(state_db))
+
+        assert record is not None
+        self.assertEqual(record["status"], "failed")
+        self.assertEqual(record["trigger"], "scheduled")
+        self.assertEqual(record["phase"], "mailbox_actions")
+        self.assertEqual(record["processed"], 23)
+        self.assertEqual(record["mailbox_outcome"], "unknown")
+
+    def test_failure_before_the_scan_namespace_exists_clears_the_mailbox(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            settings_path = Path(directory) / "settings.json"
+            account = AccountSettings(
+                "yahoo_test",
+                ProviderKind.YAHOO,
+                model_profile=LocalModelProfile.GEMMA12,
+                schedule=ScheduleSettings(enabled=True, hour=3),
+            )
+            SettingsStore(settings_path).save(ApplicationSettings((account,)))
+
+            _record_scheduled_failure("yahoo_test", settings_path, None)
+            state_db = settings_path.parent / "accounts/yahoo_test/preferences.sqlite3"
+            record = latest_diagnostic(diagnostic_path(state_db))
+
+        assert record is not None
+        self.assertEqual(record["phase"], "startup")
+        self.assertEqual(record["processed"], 0)
+        self.assertEqual(record["mailbox_outcome"], "unchanged")
 
     def test_final_scheduler_boundary_never_prints_raw_exception_text(self) -> None:
         output = io.StringIO()

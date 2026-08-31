@@ -19,6 +19,14 @@ compatible with Semantic Versioning after its first stable release.
   label and a Yahoo-compatible star, with HMAC-only local audit records;
 - CI, local packaging preparation, and a fail-closed release gate.
 
+### Changed
+
+- the local aggregate run record now stores the phase reached, the count
+  actually processed, and whether the mailbox was left changed, unchanged, or
+  unverifiable, so an interrupted run is no longer indistinguishable from one
+  that never started; records written before these fields existed remain
+  readable and report an unverifiable outcome.
+
 ### Security
 
 - Inbox-only boundary with no sending, permanent deletion, or empty-trash;

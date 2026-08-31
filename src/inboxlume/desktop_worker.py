@@ -21,6 +21,7 @@ from .cli import (
 )
 from .credential_store import SystemCredentialStore
 from .diagnostics import (
+    DIAGNOSTIC_PHASES,
     append_diagnostic,
     diagnostic_for_terminal_status,
     diagnostic_from_summary,
@@ -790,7 +791,26 @@ def execute_threat_backtest(
     return payload
 
 
-def _record_terminal_scan_status(args: argparse.Namespace, status: str) -> None:
+def terminal_scan_receipt(args: argparse.Namespace) -> tuple[str, int, str]:
+    """Report the phase, processed count and mailbox outcome actually reached.
+
+    The scan records its progress on its own namespace as it advances, so an
+    interrupted run can state where it stopped instead of falling back to
+    defaults that would look identical to a run that never began.
+    """
+
+    phase = str(getattr(args, "_worker_stage", "startup"))
+    if phase not in DIAGNOSTIC_PHASES:
+        phase = "unspecified"
+    try:
+        processed = max(0, int(getattr(args, "_worker_processed", 0)))
+    except (TypeError, ValueError):
+        processed = 0
+    mutation_started = bool(getattr(args, "_mailbox_mutation_started", False))
+    return phase, processed, "unknown" if mutation_started else "unchanged"
+
+
+def record_terminal_scan_status(args: argparse.Namespace, status: str) -> None:
     if getattr(args, "command", None) != "scan":
         return
     try:
@@ -800,6 +820,7 @@ def _record_terminal_scan_status(args: argparse.Namespace, status: str) -> None:
             if profile is not None
             else "heuristic-policy-v2"
         )
+        phase, processed, mailbox_outcome = terminal_scan_receipt(args)
         append_diagnostic(
             diagnostic_path(args.state_db),
             diagnostic_for_terminal_status(
@@ -808,11 +829,18 @@ def _record_terminal_scan_status(args: argparse.Namespace, status: str) -> None:
                 provider=str(args.provider),
                 destination=str(args.destination),
                 scan_profile=scan_profile,
+                phase=phase,
+                processed=processed,
+                mailbox_outcome=mailbox_outcome,
                 governor_requested=bool(args.enforce_safety_governor),
             ),
         )
     except Exception:  # noqa: BLE001 - diagnostics must never mask the root failure
         pass
+
+
+# Retained so existing callers and tests keep working after the rename.
+_record_terminal_scan_status = record_terminal_scan_status
 
 
 def _write_terminal_worker_event(
@@ -826,17 +854,11 @@ def _write_terminal_worker_event(
         event["error_code"] = error_code
         event["message"] = WORKER_FAILURE_MESSAGES[error_code]
     if getattr(args, "command", None) == "scan":
-        mutation_started = bool(
-            getattr(args, "_mailbox_mutation_started", False)
-        )
-        event["stage"] = str(getattr(args, "_worker_stage", "startup"))
-        event["processed_before_stop"] = max(
-            0, int(getattr(args, "_worker_processed", 0))
-        )
-        event["mailbox_outcome"] = (
-            "unknown" if mutation_started else "unchanged"
-        )
-        event["mailbox_changes_unknown"] = mutation_started
+        phase, processed, mailbox_outcome = terminal_scan_receipt(args)
+        event["stage"] = phase
+        event["processed_before_stop"] = processed
+        event["mailbox_outcome"] = mailbox_outcome
+        event["mailbox_changes_unknown"] = mailbox_outcome == "unknown"
     write_event(sys.stdout, event)
 
 

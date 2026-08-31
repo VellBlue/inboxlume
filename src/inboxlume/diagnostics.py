@@ -14,6 +14,32 @@ from .operation_lock import AccountOperationLock
 DIAGNOSTIC_SCHEMA_VERSION = "run-diagnostic-v1"
 MAX_DIAGNOSTIC_RECORDS = 200
 
+# Stage codes emitted by the desktop worker, plus the two values that only a
+# record can carry: "completed" for a run that reached its final receipt and
+# "unspecified" for records written before the phase was persisted.
+DIAGNOSTIC_PHASES = frozenset(
+    {
+        "unspecified",
+        "startup",
+        "classification",
+        "threat_protection",
+        "lumegraph",
+        "obsolescence_proof",
+        "mailbox_actions",
+        "post_scan",
+        "completed",
+    }
+)
+DIAGNOSTIC_MAILBOX_OUTCOMES = frozenset({"unchanged", "changed", "unknown"})
+
+# Records written before this schema gained the two fields stay readable: the
+# phase they stopped in was never stored, and their mailbox outcome therefore
+# cannot be proven from the record alone.
+LEGACY_DIAGNOSTIC_DEFAULTS: Mapping[str, str] = {
+    "phase": "unspecified",
+    "mailbox_outcome": "unknown",
+}
+
 
 @dataclass(frozen=True, slots=True)
 class RunDiagnostic:
@@ -23,8 +49,10 @@ class RunDiagnostic:
     provider: str
     destination: str
     scan_profile: str
+    phase: str
     processed: int
     applied: int
+    mailbox_outcome: str
     governor_requested: bool
     governor_enforced: bool
     governor_blocked: int
@@ -46,6 +74,12 @@ class RunDiagnostic:
             raise ValueError("invalid diagnostic destination")
         if not self.scan_profile.strip() or len(self.scan_profile) > 100:
             raise ValueError("invalid diagnostic scan profile")
+        if self.phase not in DIAGNOSTIC_PHASES:
+            raise ValueError("invalid diagnostic phase")
+        if self.mailbox_outcome not in DIAGNOSTIC_MAILBOX_OUTCOMES:
+            raise ValueError("invalid diagnostic mailbox outcome")
+        if (self.status == "completed") != (self.phase == "completed"):
+            raise ValueError("diagnostic phase contradicts diagnostic status")
         counts = (
             self.processed,
             self.applied,
@@ -66,8 +100,10 @@ class RunDiagnostic:
             "provider": self.provider,
             "destination": self.destination,
             "scan_profile": self.scan_profile,
+            "phase": self.phase,
             "processed": self.processed,
             "applied": self.applied,
+            "mailbox_outcome": self.mailbox_outcome,
             "governor_requested": self.governor_requested,
             "governor_enforced": self.governor_enforced,
             "governor_blocked": self.governor_blocked,
@@ -98,6 +134,14 @@ def diagnostic_from_summary(
     governor = governor_raw if isinstance(governor_raw, Mapping) else {}
     graph_raw = summary.get("lumegraph")
     graph = graph_raw if isinstance(graph_raw, Mapping) else {}
+    applied = int(actions.get("applied", 0))
+    # A completed run carries its own proof: the mailbox changed only when the
+    # summary reports an applied action, so the record never has to guess.
+    mailbox_outcome = (
+        "changed"
+        if summary.get("changes_mailbox") is True or applied > 0
+        else "unchanged"
+    )
     return RunDiagnostic(
         recorded_at=recorded_at or datetime.now(timezone.utc),
         trigger=trigger,
@@ -105,8 +149,10 @@ def diagnostic_from_summary(
         provider=provider,
         destination=destination,
         scan_profile=str(summary.get("scan_profile", "")),
+        phase="completed",
         processed=int(summary.get("newly_processed", 0)),
-        applied=int(actions.get("applied", 0)),
+        applied=applied,
+        mailbox_outcome=mailbox_outcome,
         governor_requested=governor_requested,
         governor_enforced=bool(governor.get("enforced", False)),
         governor_blocked=int(governor.get("blocked_current_batch", 0)),
@@ -124,10 +170,19 @@ def diagnostic_for_terminal_status(
     provider: str,
     destination: str,
     scan_profile: str,
+    phase: str,
+    processed: int,
+    mailbox_outcome: str,
     governor_requested: bool,
     recorded_at: datetime | None = None,
 ) -> RunDiagnostic:
-    """Create an aggregate failure/cancellation record without exception text."""
+    """Create an aggregate failure/cancellation record without exception text.
+
+    The caller must supply the phase actually reached, the count actually
+    processed and whether a mailbox mutation had already begun.  Recording
+    defaults here would make an interrupted run indistinguishable from one that
+    never touched the mailbox, which is precisely what the record has to prove.
+    """
 
     return RunDiagnostic(
         recorded_at=recorded_at or datetime.now(timezone.utc),
@@ -136,8 +191,10 @@ def diagnostic_for_terminal_status(
         provider=provider,
         destination=destination,
         scan_profile=scan_profile,
-        processed=0,
+        phase=phase,
+        processed=processed,
         applied=0,
+        mailbox_outcome=mailbox_outcome,
         governor_requested=governor_requested,
         governor_enforced=False,
         governor_blocked=0,
@@ -205,6 +262,16 @@ def latest_diagnostic(path: Path) -> dict[str, object] | None:
     if not isinstance(value, dict) or value.get("schema") != DIAGNOSTIC_SCHEMA_VERSION:
         raise ValueError("invalid local diagnostic record")
     allowed = set(RunDiagnostic.__dataclass_fields__) | {"schema", "stored_plaintext"}
-    if set(value) != allowed or value.get("stored_plaintext") is not False:
+    required = allowed - set(LEGACY_DIAGNOSTIC_DEFAULTS)
+    present = set(value)
+    if not required <= present <= allowed:
         raise ValueError("invalid local diagnostic fields")
-    return value
+    if value.get("stored_plaintext") is not False:
+        raise ValueError("invalid local diagnostic fields")
+    record = {**LEGACY_DIAGNOSTIC_DEFAULTS, **value}
+    if (
+        record["phase"] not in DIAGNOSTIC_PHASES
+        or record["mailbox_outcome"] not in DIAGNOSTIC_MAILBOX_OUTCOMES
+    ):
+        raise ValueError("invalid local diagnostic fields")
+    return record
