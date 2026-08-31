@@ -17,7 +17,14 @@ try:
         Qt,
         Signal,
     )
-    from PySide6.QtGui import QCloseEvent, QColor, QFont, QPalette
+    from PySide6.QtGui import (
+        QCloseEvent,
+        QColor,
+        QFont,
+        QPainter,
+        QPalette,
+        QPixmap,
+    )
     from PySide6.QtWidgets import (
         QApplication,
         QButtonGroup,
@@ -119,6 +126,8 @@ from .settings import (
 
 
 APP_VERSION = "0.5.0-dev"
+BRAND_MARK_FILE = "brand_mark.svg"
+BRAND_MARK_SIZE = 48
 
 
 STYLE_SHEET = """
@@ -163,6 +172,9 @@ QPushButton#languageOption:checked {
     font-weight: 760;
 }
 QLabel#brandMark {
+    background: transparent;
+}
+QLabel#brandMark[fallback="true"] {
     background: #2BC28A;
     color: #0D211A;
     border-radius: 12px;
@@ -437,6 +449,42 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
     background: transparent;
 }
 """
+
+
+def _brand_mark_pixmap(size: int) -> QPixmap | None:
+    """Render the vector brand mark for the sidebar badge.
+
+    Returns None when the asset or the SVG runtime is missing, so a build that
+    ships without either still opens with a readable sidebar instead of an
+    empty square.
+    """
+
+    source = Path(__file__).with_name(BRAND_MARK_FILE)
+    if not source.is_file():
+        return None
+    try:
+        from PySide6.QtSvg import QSvgRenderer
+    except ImportError:
+        return None
+    renderer = QSvgRenderer(str(source))
+    if not renderer.isValid():
+        return None
+    screen = QApplication.primaryScreen()
+    # Render at the screen's own density: a mark rasterised at logical size
+    # looks soft on every Retina display.
+    ratio = float(screen.devicePixelRatio()) if screen is not None else 1.0
+    ratio = ratio if ratio > 0 else 1.0
+    pixmap = QPixmap(round(size * ratio), round(size * ratio))
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    try:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        renderer.render(painter)
+    finally:
+        painter.end()
+    pixmap.setDevicePixelRatio(ratio)
+    return pixmap
 
 
 def configure_application_appearance(app: QApplication) -> None:
@@ -850,10 +898,19 @@ class SettingsWindow(QMainWindow):
         layout.setSpacing(18)
 
         brand = QHBoxLayout()
-        mark = QLabel("IL")
+        mark = QLabel()
         mark.setObjectName("brandMark")
         mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        mark.setFixedSize(48, 48)
+        mark.setFixedSize(BRAND_MARK_SIZE, BRAND_MARK_SIZE)
+        mark.setAccessibleName("InboxLume")
+        rendered = _brand_mark_pixmap(BRAND_MARK_SIZE)
+        if rendered is None:
+            # Initials keep the sidebar legible if a build ships without the
+            # vector mark, and the stylesheet gives them their own badge.
+            mark.setText("IL")
+            mark.setProperty("fallback", True)
+        else:
+            mark.setPixmap(rendered)
         brand_text = QVBoxLayout()
         brand_text.setSpacing(1)
         title = QLabel("InboxLume")

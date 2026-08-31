@@ -11,7 +11,12 @@ try:
     from PySide6.QtWidgets import QApplication, QMessageBox
 
     from inboxlume.auth import AccountConnectionStatus, ConnectionState
-    from inboxlume.desktop_app import SettingsWindow
+    from inboxlume.desktop_app import (
+        BRAND_MARK_FILE,
+        BRAND_MARK_SIZE,
+        SettingsWindow,
+        _brand_mark_pixmap,
+    )
     from inboxlume.duration_estimator import (
         EstimateConfidence,
         ScanDurationEstimate,
@@ -343,6 +348,39 @@ class DesktopAppTests(unittest.TestCase):
             self.assertFalse(window.dirty)
             window.dirty = False
             window.close()
+
+
+@unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
+class BrandMarkTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_the_vector_mark_ships_with_the_package(self) -> None:
+        import inboxlume
+
+        asset = Path(inboxlume.__file__).with_name(BRAND_MARK_FILE)
+        self.assertTrue(asset.is_file(), asset)
+
+        # Declared package data, or an installed build would open without it.
+        pyproject = (
+            Path(__file__).resolve().parents[1] / "pyproject.toml"
+        ).read_text(encoding="utf-8")
+        self.assertIn(BRAND_MARK_FILE, pyproject)
+
+    def test_the_badge_renders_at_the_requested_logical_size(self) -> None:
+        pixmap = _brand_mark_pixmap(BRAND_MARK_SIZE)
+
+        assert pixmap is not None
+        self.assertFalse(pixmap.isNull())
+        ratio = pixmap.devicePixelRatio()
+        self.assertEqual(round(pixmap.width() / ratio), BRAND_MARK_SIZE)
+        self.assertEqual(round(pixmap.height() / ratio), BRAND_MARK_SIZE)
+
+    def test_a_missing_asset_falls_back_instead_of_an_empty_square(self) -> None:
+        with patch("inboxlume.desktop_app.BRAND_MARK_FILE", "assente.svg"):
+            self.assertIsNone(_brand_mark_pixmap(BRAND_MARK_SIZE))
 
 
 if __name__ == "__main__":

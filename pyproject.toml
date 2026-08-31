@@ -57,7 +57,7 @@ mail-guardian-desktop = "inboxlume.desktop_app:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-inboxlume = ["default_policy.json", "threat_corpus_v1.json"]
+inboxlume = ["brand_mark.svg", "default_policy.json", "threat_corpus_v1.json"]
 
 [tool.setuptools.data-files]
 benchmarks = ["benchmarks/mlx_email_worker.py"]
