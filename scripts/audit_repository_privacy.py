@@ -152,7 +152,7 @@ def history_email_is_public(address: str) -> bool:
 
 def audit_git_history() -> list[str]:
     result = subprocess.run(
-        ["git", "log", "--all", "--format=%ae%n%ce%n%B"],
+        ["git", "log", "--branches", "--tags", "--format=%ae%n%ce%n%B"],
         cwd=ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
