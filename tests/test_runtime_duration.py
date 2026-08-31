@@ -9,6 +9,7 @@ from pathlib import Path
 from inboxlume.duration_estimator import EstimateConfidence
 from inboxlume.local_models import HardwareProfile, LocalModelProfile
 from inboxlume.runtime import (
+    local_operational_status_summary,
     local_scan_duration_estimate,
     record_local_scan_timing,
 )
@@ -43,6 +44,28 @@ class IdOnlyMailbox:
 
 
 class RuntimeDurationTests(unittest.TestCase):
+    def test_operational_dashboard_snapshot_is_account_and_model_scoped(self) -> None:
+        store = FakeSecretStore()
+        account = ApplicationSettings.defaults().accounts[0]
+        with tempfile.TemporaryDirectory() as directory:
+            summary = local_operational_status_summary(
+                Path(directory) / "state.sqlite3",
+                account.account_id,
+                store,
+                "dashboard-profile",
+            )
+
+        self.assertEqual(
+            set(summary),
+            {"scan", "quarantine", "threat", "lumegraph", "proof", "governor"},
+        )
+        self.assertEqual(summary["scan"]["processed_total"], 0)  # type: ignore[index]
+        self.assertEqual(summary["threat"]["assessed_total"], 0)  # type: ignore[index]
+        self.assertEqual(summary["lumegraph"]["nodes_total"], 0)  # type: ignore[index]
+        self.assertEqual(summary["proof"]["verified_total"], 0)  # type: ignore[index]
+        self.assertEqual(summary["governor"].account_id, account.account_id)  # type: ignore[union-attr]
+        self.assertEqual(summary["governor"].scan_profile, "dashboard-profile")  # type: ignore[union-attr]
+
     def test_estimate_uses_id_only_count_and_respects_session_limit(self) -> None:
         store = FakeSecretStore()
         account = replace(

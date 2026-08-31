@@ -136,3 +136,38 @@ footer { padding: 54px 0 72px; border-top: 1px solid var(--line); color: var(--m
 }
 
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* Long-form log pages: code samples and pull-quoted lessons. */
+.prose { max-width: 760px; }
+.prose p { color: #c2d9d0; }
+.prose ul { color: #c2d9d0; padding-left: 20px; }
+.prose li { margin: 8px 0; }
+pre {
+  margin: 26px 0; padding: 20px 22px; overflow-x: auto;
+  border: 1px solid var(--line); border-radius: 16px;
+  background: rgba(7, 21, 16, .72);
+}
+pre code { font-size: .95rem; line-height: 1.6; }
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .93em; color: var(--lume);
+}
+pre code { color: var(--ink); }
+blockquote.lesson {
+  margin: 30px 0; padding: 22px 26px;
+  border-left: 4px solid var(--lume); border-radius: 0 18px 18px 0;
+  background: rgba(63, 211, 154, .07);
+  color: var(--ink); font-size: 1.12rem; font-weight: 600;
+}
+blockquote.lesson p { margin: 0; color: inherit; }
+.entry { border-top: 1px solid var(--line); padding-top: 42px; margin-top: 56px; }
+.entry:first-of-type { border-top: none; }
+.metric-row { display: flex; flex-wrap: wrap; gap: 14px; margin: 28px 0 0; }
+.metric {
+  flex: 1 1 180px; padding: 18px 20px; border: 1px solid var(--line);
+  border-radius: 18px; background: rgba(255,255,255,.025);
+}
+.metric span { display: block; color: var(--muted); font-size: .84rem; }
+.metric strong { display: block; margin-top: 6px; font-size: 1.6rem; }
+.metric.bad strong { color: var(--danger); }
+.metric.good strong { color: var(--lume); }

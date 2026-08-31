@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +7,8 @@ name = "inboxlume"
 version = "0.5.0.dev0"
 description = "Local, private AI for understanding and safely maintaining email"
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11,<3.14"
 dependencies = [
   # Verifying a provider certificate must not depend on how the user's

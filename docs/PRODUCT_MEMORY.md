@@ -299,20 +299,22 @@ essere descritte come “uniche al mondo” senza verifica brevettuale professio
   log, screenshot privato o percorso personale può essere commesso o pubblicato.
 - Esempi, test, screenshot, documentazione e sito devono usare solo dati sintetici
   sanificati. L'audit privacy dei candidati al commit è un gate di release.
-- Il sito GitHub Pages e l'articolo tecnico dovranno presentare utilità, confronto
+- Il sito GitHub Pages e l'articolo tecnico presentano utilità, confronto
   locale/cloud, architettura, threat model, matematica della calibrazione,
   benchmark, limiti, falsi positivi e astensioni con linguaggio scientificamente
   onesto.
-- Il Milestone 6 prepara soltanto CI, packaging, documentazione, articolo e sito in
-  locale. Non autorizza repository remoti, release, upload, firma o deploy.
-- La pubblicazione avverrà soltanto dopo aver deciso quali funzioni approvate
-  includere nella prima release, completato quel perimetro e svolto una nuova
-  revisione di sicurezza. La licenza resta una decisione esplicita ancora aperta.
-- Il release gate versionato deve restare chiuso e la versione deve restare di
-  sviluppo fino a un'autorizzazione esplicita dell'utente.
-- Prima della pubblicazione, tutte le superfici pubbliche rimanenti devono essere
-  revisionate in inglese e italiano; screenshot e pagine hanno asset sintetici
-  distinti per lingua. Una localizzazione incompleta blocca la release.
+- La preparazione locale del Milestone 6 non autorizzava repository remoti. Il 31
+  agosto 2026 l'utente ha autorizzato separatamente repository pubblico e GitHub
+  Pages come anteprima di sviluppo, senza autorizzare release, artefatti, firma o
+  pacchetti.
+- Sorgente e documentazione usano Apache-2.0. Pesi dei modelli, dipendenze e dati
+  dell'utente conservano le rispettive condizioni.
+- Il release gate versionato resta chiuso e la versione resta di sviluppo fino a
+  una distinta autorizzazione alla release, dopo perimetro finale, pacchetti e
+  revisione di sicurezza.
+- Le superfici pubbliche sono revisionate in inglese e italiano; screenshot e
+  pagine hanno asset sintetici distinti per lingua. Una localizzazione incompleta
+  blocca ogni aggiornamento pubblico.
 
 ## Ordine di sviluppo conservato
 

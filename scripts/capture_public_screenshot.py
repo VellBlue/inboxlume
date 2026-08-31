@@ -38,8 +38,18 @@ def main(argv: list[str] | None = None) -> int:
     from inboxlume.settings import ApplicationSettings, SettingsStore
     from inboxlume.i18n import UiLanguage
 
+    class SyntheticSecretStore:
+        def __init__(self) -> None:
+            self.values: dict[tuple[str, str], str] = {}
+
+        def get(self, service: str, account: str) -> str | None:
+            return self.values.get((service, account))
+
+        def set(self, service: str, account: str, secret: str) -> None:
+            self.values[(service, account)] = secret
+
     class SyntheticAuthService:
-        store = object()
+        store = SyntheticSecretStore()
 
         def status(
             self,

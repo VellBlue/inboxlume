@@ -5,12 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="InboxLume uses local AI models and deterministic guardrails to understand and maintain Gmail and Yahoo without sending email content to cloud AI services.">
   <meta name="color-scheme" content="dark">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="InboxLume — Private AI for a cleaner inbox">
+  <meta property="og:description" content="Local email understanding with private learning, reversible actions, and explicit safety evidence.">
+  <meta property="og:url" content="https://vellblue.github.io/inboxlume/">
   <title>InboxLume — Private AI for a cleaner inbox</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/site.css?v=20260830">
+  <link rel="canonical" href="https://vellblue.github.io/inboxlume/">
+  <link rel="alternate" hreflang="en" href="https://vellblue.github.io/inboxlume/">
+  <link rel="alternate" hreflang="it" href="https://vellblue.github.io/inboxlume/it/">
+  <link rel="stylesheet" href="assets/site.css?v=20260831">
 </head>
 <body>
-  <div class="preflight">Local preview of a project in development — no public release is available yet.</div>
+  <div class="preflight">Public development preview — no supported packaged release is available yet.</div>
   <header class="wrap">
     <nav aria-label="Main navigation">
       <a class="brand" href="#top"><span class="brand-mark">IL</span><strong>InboxLume</strong></a>
@@ -31,6 +38,7 @@
         <div class="hero-actions">
           <a class="button primary" href="#architecture">Explore the architecture</a>
           <a class="button" href="ARTICLE.md">Read the technical article</a>
+          <a class="button" href="engineering-log.html">Read the engineering log</a>
         </div>
       </div>
       <aside class="hero-card" aria-label="Core boundaries">
@@ -108,20 +116,21 @@
     <section class="wrap">
       <div class="eyebrow">Interface</div>
       <h2>Readable controls, compartmentalised accounts.</h2>
-      <p class="section-intro">Every account keeps an independent model, thresholds, quiz, destination, and schedule. The interface explains what is ready and why a capability is blocked, without loading a model merely to open the app. English is the default; Italian is a separately edited localisation. Both languages can appear together in the email being classified.</p>
+      <p class="section-intro">Every account keeps an independent model, thresholds, quiz, destination, and schedule. A dedicated operational dashboard shows completed analyses, reversible Quarantine moves, suspicious messages protected, verified proofs, and the exact modules active in a live scan. It reads private aggregate ledgers without reopening messages. English is the default; Italian is a separately edited localisation.</p>
       <figure class="screenshot"><img src="assets/inboxlume-settings.png" alt="InboxLume interface with synthetic accounts and local settings"><figcaption class="fineprint">Generated with synthetic accounts and states; no real email data.</figcaption></figure>
     </section>
 
     <section id="status" class="wrap">
       <div class="callout">
         <div class="eyebrow">Project status</div>
-        <h2>Prepared, not published.</h2>
-        <p>The Gmail/Yahoo foundation, controlled model profiles, GUI, and scheduling exist. Packaging, CI, and this site are prepared locally, but the release gate remains closed until the agreed features, licence, security review, and verified packages are complete.</p>
+        <h2>Public development preview.</h2>
+        <p>The source and this site are public under Apache-2.0. The Gmail/Yahoo foundation, controlled model profiles, GUI, and scheduling exist, while the separate release gate remains closed until the agreed features, security review, and verified packages are complete.</p>
         <div class="status-list">
           <div class="status-item">One-shot Inbox scans and reversible Quarantine</div>
           <div class="status-item">Multiple Gmail/Yahoo accounts with isolated state</div>
           <div class="status-item">Repository privacy audit and cross-platform CI prepared</div>
           <div class="status-item">Personal Safety Governor: adaptive family restrictions and separate qualified Trash authority</div>
+          <div class="status-item">Local phishing protection and an account-scoped operational dashboard</div>
           <div class="status-item">LumeGraph, operational Proof of Obsolescence, temporal drift, and versioned historical backtesting implemented locally</div>
           <div class="status-item future">Counterfactual perturbations: future research</div>
           <div class="status-item future">Personal phishing baseline and LumeReply: not implemented yet</div>
@@ -133,7 +142,7 @@
   <footer>
     <div class="wrap footer-grid">
       <div><a class="brand" href="#top"><span class="brand-mark">IL</span><strong>InboxLume</strong></a></div>
-      <div class="privacy-note">No analytics, cookies, remote fonts, or third-party scripts. This is a sanitised local preview, not a release. InboxLume is intended to be free and open source; a licence must be selected before publication.</div>
+      <div class="privacy-note">No analytics, cookies, remote fonts, or third-party scripts. This is a sanitised public development preview, not a supported release. Source and documentation are licensed under Apache-2.0.</div>
     </div>
   </footer>
 </body>

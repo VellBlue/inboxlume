@@ -42,7 +42,9 @@ PYTHONPATH=src python3 -m unittest tests.test_repository_privacy -q
 L'audit controlla esattamente i file tracciati o non ignorati che potrebbero entrare
 nel commit. Rifiuta formati di posta e database, nomi tipici di credenziali, percorsi
 home personali, indirizzi non fittizi e firme note di token/chiavi. In caso di errore
-stampa soltanto percorso e regola violata, mai il contenuto rilevato.
+stampa soltanto percorso e regola violata, mai il contenuto rilevato. Controlla
+anche autore, committer e messaggi dell'intera cronologia Git: sono ammessi soltanto
+indirizzi `noreply` pubblici esplicitamente previsti.
 
-GitHub Pages dovrà essere generato esclusivamente da documentazione e asset
-sanificati. Il sito non richiederà né riceverà credenziali o dati delle email.
+GitHub Pages viene generato esclusivamente da `main/docs`, con documentazione e
+asset sanificati. Il sito non richiede né riceve credenziali o dati delle email.

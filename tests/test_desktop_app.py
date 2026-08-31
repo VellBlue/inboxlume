@@ -26,6 +26,7 @@ try:
     from inboxlume.local_models import LocalModelProfile
     from inboxlume.models import ProviderKind
     from inboxlume.native_scheduler import ScheduleStatus
+    from inboxlume.safety_governor import evaluate_safety_governor
     from inboxlume.settings import ApplicationSettings, SettingsStore
     from inboxlume.i18n import UiLanguage
 
@@ -117,6 +118,7 @@ class DesktopAppTests(unittest.TestCase):
             self.assertEqual(
                 card_order,
                 [
+                    "operationalStatusCard",
                     "scanCard",
                     "optionalModulesCard",
                     "threatCard",
@@ -128,6 +130,19 @@ class DesktopAppTests(unittest.TestCase):
                     "governorCard",
                     "scheduleCard",
                 ],
+            )
+            self.assertEqual(window.scanned_metric.label.text(), "Email analysed")
+            self.assertEqual(
+                window.quarantine_metric.label.text(),
+                "Sent to Quarantine",
+            )
+            self.assertIn(
+                "Connect the account",
+                window.scanned_metric.detail.text(),
+            )
+            self.assertEqual(
+                window.dashboard_threat_module.icon.text(),
+                "✓",
             )
             self.assertIn("Inbox scan", window.scan_button.text())
             self.assertIn("Proof of Obsolescence", window.proof_status.text())
@@ -153,6 +168,90 @@ class DesktopAppTests(unittest.TestCase):
                 ["--backend", "ollama", "--ollama-model", "qwen3-vl:8b"],
             )
             self.assertFalse(window.remove_schedule_button.isEnabled())
+            window.close()
+
+    def test_running_scan_keeps_protection_ticks_and_states_explicit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = SettingsStore(Path(directory) / "settings.json")
+            store.save(ApplicationSettings.defaults())
+            window = SettingsWindow(
+                store=store,
+                auth_service=FakeAuthService(),  # type: ignore[arg-type]
+                schedule_backend=FakeScheduleBackend(),  # type: ignore[arg-type]
+            )
+
+            window._operation = "scan"
+            window._set_operation_busy(True)
+            window._set_operational_running(True)
+
+            for checkbox in (
+                window.threat_protection_checkbox,
+                window.lumegraph_checkbox,
+                window.obsolescence_proof_checkbox,
+            ):
+                self.assertTrue(checkbox.isChecked())
+                self.assertFalse(checkbox.isEnabled())
+                self.assertTrue(checkbox.property("scanLocked"))
+            self.assertIn(
+                "Active in this scan",
+                window.dashboard_threat_module.state.text(),
+            )
+            self.assertEqual(
+                window.dashboard_governor_module.state.text(),
+                "Shadow only in this scan",
+            )
+            self.assertTrue(window.operational_account_badge.property("running"))
+            self.assertIn("SCANNING NOW", window.operational_account_badge.text())
+
+            window._operation = None
+            window._set_operation_busy(False)
+            window.dirty = False
+            window.close()
+
+    def test_operational_dashboard_maps_private_aggregates_to_clear_kpis(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = SettingsStore(Path(directory) / "settings.json")
+            store.save(ApplicationSettings.defaults())
+            window = SettingsWindow(
+                store=store,
+                auth_service=FakeAuthService(),  # type: ignore[arg-type]
+                schedule_backend=FakeScheduleBackend(),  # type: ignore[arg-type]
+            )
+            account_id = str(window.current_account_id)
+            profile = "dashboard-profile"
+            report = evaluate_safety_governor(account_id, profile, {})
+            snapshot = {
+                "scan": {"processed_total": 1_284},
+                "quarantine": {"applied": 37, "already_applied": 2},
+                "threat": {
+                    "assessed_total": 1_284,
+                    "protective_reviews_total": 11,
+                },
+                "lumegraph": {"nodes_total": 218, "transitions_total": 94},
+                "proof": {
+                    "verified_total": 23,
+                    "statuses": {
+                        "blocked_protected_utility": 4,
+                        "insufficient_evidence": 6,
+                    },
+                },
+                "governor": report,
+            }
+            window._connection_read_access = True
+            with patch(
+                "inboxlume.desktop_app.local_operational_status_summary",
+                return_value=snapshot,
+            ):
+                window._refresh_operational_status()
+
+            self.assertEqual(window.scanned_metric.value_label.text(), "1,284")
+            self.assertEqual(window.quarantine_metric.value_label.text(), "39")
+            self.assertEqual(window.suspicious_metric.value_label.text(), "11")
+            self.assertEqual(window.proof_metric.value_label.text(), "23")
+            self.assertIn("218 nodes", window.dashboard_lumegraph_module.state.text())
+            self.assertIn("1,284 private assessments", window.suspicious_metric.detail.text())
+            self.assertIn("10 protected", window.proof_metric.detail.text())
+            window.dirty = False
             window.close()
 
     def test_existing_user_can_run_the_natural_italian_interface(self) -> None:

@@ -7,9 +7,9 @@
 > email configurato e non viene inviato a servizi AI esterni.
 
 > [!IMPORTANT]
-> InboxLume è ancora in sviluppo e non esiste una release pubblica supportata. CI,
-> packaging e sito sono predisposti localmente, ma la pubblicazione è bloccata fino
-> al completamento del perimetro concordato e della revisione finale.
+> InboxLume è un progetto di sviluppo pubblico. Non esiste ancora una release
+> pacchettizzata supportata; il release gate fail-closed continua a impedire la
+> pubblicazione accidentale di binari o pacchetti.
 
 Agente locale per classificare vecchie email non lette di Gmail e Yahoo.
 Acquisizione, classificazione, apprendimento e scansione restano in modalità
@@ -157,17 +157,26 @@ alla sessione successiva. Le risposte del quiz già confermate restano invece sa
 Credenziali, preferenze personali, database e log sono esclusi dal repository. Le
 regole per evitare pubblicazioni accidentali sono documentate in
 [docs/REPOSITORY_PRIVACY.md](docs/REPOSITORY_PRIVACY.md) e verificate da un test
-dedicato. Il futuro sito GitHub Pages userà soltanto contenuti e asset sanificati.
+dedicato. Il sito GitHub Pages usa soltanto contenuti e asset sanificati.
 
 ## Documentazione di progetto
 
+- [Sito del progetto](https://VellBlue.github.io/inboxlume/) · [versione italiana](https://VellBlue.github.io/inboxlume/it/)
 - [Installazione e compatibilità](docs/INSTALLATION.md)
 - [Autenticazione Gmail](docs/GMAIL_SETUP.md) e [Yahoo](docs/YAHOO_SETUP.md)
 - [Modelli locali](docs/LOCAL_MODELS.md) e [benchmark](docs/MODEL_BENCHMARKS.md)
 - [Threat model](SECURITY.md) e [inventario permessi](docs/PERMISSIONS.md)
 - [Memoria completa del prodotto](docs/PRODUCT_MEMORY.md)
 - [Articolo tecnico in italiano](docs/it/ARTICLE.md) e [versione inglese](docs/ARTICLE.md)
+- [Diario di ingegneria](docs/it/engineering-log.html) e [versione inglese](docs/engineering-log.html)
 - [Checklist e gate di pubblicazione](docs/RELEASE_CHECKLIST.md)
+
+## Licenza open source
+
+Il sorgente e la documentazione di InboxLume sono distribuiti con
+[licenza Apache 2.0](LICENSE). I pesi dei modelli, le dipendenze di terze parti e
+i dati dell'utente conservano le rispettive condizioni. Il repository pubblico è
+uno snapshot di sviluppo, non una release binaria supportata.
 
 ## Categorie iniziali
 

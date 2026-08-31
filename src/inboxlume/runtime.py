@@ -161,6 +161,46 @@ def local_obsolescence_proof_summary(
     return preferences.obsolescence_proof_summary(account_id, scan_profile)
 
 
+def local_operational_status_summary(
+    state_db: Path,
+    account_id: str,
+    secret_store: SecretStore,
+    scan_profile: str,
+) -> dict[str, object]:
+    """Return the account-scoped aggregates used by the desktop dashboard.
+
+    The dashboard deliberately reads the existing privacy-preserving ledgers:
+    no message is reopened and no provider identifier or plaintext is exposed.
+    Keeping the snapshot behind one runtime boundary also prevents the UI from
+    presenting counts assembled from different account/model scopes.
+    """
+
+    preferences = PreferenceStore(
+        state_db,
+        load_or_create_hmac_key(secret_store, account_id, state_db),
+        account_id,
+    )
+    governor_evidence = preferences.shadow_quarantine_evidence_by_category(
+        account_id,
+        scan_profile,
+    )
+    return {
+        "scan": preferences.shadow_scan_summary(account_id, scan_profile),
+        "quarantine": preferences.quarantine_pilot_summary(
+            account_id,
+            scan_profile,
+        ),
+        "threat": preferences.threat_assessment_summary(account_id, scan_profile),
+        "lumegraph": preferences.lumegraph_summary(account_id, scan_profile),
+        "proof": preferences.obsolescence_proof_summary(account_id, scan_profile),
+        "governor": evaluate_safety_governor(
+            account_id,
+            scan_profile,
+            governor_evidence,
+        ),
+    }
+
+
 def local_safety_governor_report(
     state_db: Path,
     account_id: str,

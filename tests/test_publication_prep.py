@@ -4,6 +4,7 @@ import re
 import tomllib
 import unittest
 from pathlib import Path
+from urllib.parse import urlsplit
 from unittest.mock import patch
 
 from scripts.package_desktop import (
@@ -76,19 +77,45 @@ class PublicationPreparationTests(unittest.TestCase):
         self.assertIn("python scripts/smoke_packaged_worker.py", package_smoke)
 
     def test_site_uses_only_local_assets_and_has_no_tracking(self) -> None:
-        index = (ROOT / "docs/index.html").read_text(encoding="utf-8")
-        italian = (ROOT / "docs/it/index.html").read_text(encoding="utf-8")
+        pages = {
+            ROOT / "docs/index.html": '<html lang="en">',
+            ROOT / "docs/it/index.html": '<html lang="it">',
+            ROOT / "docs/engineering-log.html": '<html lang="en">',
+            ROOT / "docs/it/engineering-log.html": '<html lang="it">',
+        }
         css = (ROOT / "docs/assets/site.css").read_text(encoding="utf-8")
+        allowed_metadata_urls = {
+            "https://vellblue.github.io/inboxlume/",
+            "https://vellblue.github.io/inboxlume/it/",
+            "https://vellblue.github.io/inboxlume/engineering-log.html",
+            "https://vellblue.github.io/inboxlume/it/engineering-log.html",
+        }
 
-        self.assertIn('<html lang="en">', index)
-        self.assertIn('<html lang="it">', italian)
-        for page in (index, italian):
+        for path, language_marker in pages.items():
+            page = path.read_text(encoding="utf-8")
+            self.assertIn(language_marker, page)
             self.assertNotIn("http://", page)
-            self.assertNotIn("https://", page)
+            self.assertLessEqual(
+                set(re.findall(r'https://[^"\s<>]+', page)),
+                allowed_metadata_urls,
+            )
+            for source in re.findall(r'src="([^"]+)"', page):
+                self.assertFalse(urlsplit(source).scheme, f"{path}: remote asset {source}")
             without_privacy_notice = page.casefold().replace("no analytics", "").replace(
                 "nessun analytics", ""
             )
             self.assertNotIn("analytics", without_privacy_notice)
+            for reference in re.findall(r'(?:href|src)="([^"]+)"', page):
+                parsed = urlsplit(reference)
+                if parsed.scheme or not parsed.path:
+                    continue
+                target = path.parent / parsed.path
+                self.assertTrue(target.exists(), f"{path}: missing {reference}")
+
+        for homepage in (ROOT / "docs/index.html", ROOT / "docs/it/index.html"):
+            self.assertIn(
+                "engineering-log.html", homepage.read_text(encoding="utf-8")
+            )
         self.assertNotIn("@import", css)
         for asset in (
             "docs/assets/site.css",
@@ -97,6 +124,8 @@ class PublicationPreparationTests(unittest.TestCase):
             "docs/assets/inboxlume-settings.png",
             "docs/assets/inboxlume-settings-it.png",
             "docs/it/ARTICLE.md",
+            "docs/engineering-log.html",
+            "docs/it/engineering-log.html",
         ):
             self.assertTrue((ROOT / asset).is_file(), asset)
 
@@ -143,6 +172,19 @@ class PublicationPreparationTests(unittest.TestCase):
             metadata["tool"]["setuptools"]["data-files"]["benchmarks"],
             ["benchmarks/mlx_email_worker.py"],
         )
+
+    def test_apache_license_is_declared_and_complete(self) -> None:
+        metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
+        notice = (ROOT / "NOTICE").read_text(encoding="utf-8")
+
+        self.assertEqual(metadata["build-system"]["requires"], ["setuptools>=77"])
+        self.assertEqual(metadata["project"]["license"], "Apache-2.0")
+        self.assertEqual(metadata["project"]["license-files"], ["LICENSE", "NOTICE"])
+        self.assertIn("Grant of Patent License", license_text)
+        self.assertIn("APPENDIX: How to apply the Apache License", license_text)
+        self.assertIn("Copyright 2026 VellBlue", notice)
+        self.assertNotRegex(notice, r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+")
 
 
 if __name__ == "__main__":

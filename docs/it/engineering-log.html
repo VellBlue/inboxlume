@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Cinque difetti misurati la prima volta che InboxLume ha incontrato un modello locale vero, un server IMAP vero e un Mac vero, con i numeri di ogni esecuzione.">
+  <meta name="color-scheme" content="dark">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Cosa abbiamo trovato eseguendo InboxLume">
+  <meta property="og:description" content="Cinque difetti misurati con un modello locale vero, un server IMAP vero e un Mac vero.">
+  <meta property="og:url" content="https://vellblue.github.io/inboxlume/it/engineering-log.html">
+  <title>Cosa è successo quando l'abbiamo acceso davvero — diario di ingegneria InboxLume</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="canonical" href="https://vellblue.github.io/inboxlume/it/engineering-log.html">
+  <link rel="alternate" hreflang="it" href="https://vellblue.github.io/inboxlume/it/engineering-log.html">
+  <link rel="alternate" hreflang="en" href="https://vellblue.github.io/inboxlume/engineering-log.html">
+  <link rel="stylesheet" href="../assets/site.css?v=20260831">
+</head>
+<body>
+  <div class="preflight">Anteprima pubblica di sviluppo — non è ancora disponibile una release pacchettizzata supportata.</div>
+  <header class="wrap">
+    <nav aria-label="Navigazione principale">
+      <a class="brand" href="index.html"><span class="brand-mark">IL</span><strong>InboxLume</strong></a>
+      <div class="nav-links">
+        <a href="../engineering-log.html" lang="en">English</a>
+        <a href="index.html">Panoramica</a>
+        <a href="#modello">Modello</a><a href="#ricevute">Ricevute</a>
+        <a href="#test">Test</a><a href="#rifiuto">Rifiuto</a><a href="#limiti">Limiti</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <div class="wrap" style="padding-top:24px">
+      <div class="eyebrow">Diario di ingegneria · 31 agosto 2026</div>
+      <h1>Cosa è successo quando l'abbiamo acceso davvero</h1>
+      <p class="lead">I documenti di progetto descrivono come un sistema dovrebbe comportarsi. Questo registra cosa è accaduto la prima volta che InboxLume ha incontrato un modello locale vero, un server IMAP vero e un Mac vero, nello stesso giorno.</p>
+      <div class="prose">
+        <p>Ogni numero riportato qui viene da un'esecuzione registrata nel repository, e la diagnostica di sicurezza che ha prodotto il primo di essi può essere rieseguita da chiunque senza collegare alcun account di posta.</p>
+        <p>Non sono curiosità. Ognuno di questi casi è una classe di difetti che un documento di progetto non può intercettare, perché in tutti il codice faceva esattamente ciò per cui era stato scritto.</p>
+      </div>
+    </div>
+
+    <section class="wrap entry" id="modello">
+      <div class="eyebrow">01 · Il modello locale</div>
+      <h2>Il modello aveva ragione, e la risposta veniva buttata via.</h2>
+      <p class="section-intro">Il backtest sintetico sulle minacce è stato eseguito per la prima volta con un modello locale reale invece che con un sostituto di test: Gemma 12B tramite MLX su Apple Silicon, sui 25 casi inclusi, senza account e senza rete.</p>
+      <div class="metric-row">
+        <div class="metric bad"><span>Fallimenti del modello, prima</span><strong>14 / 25</strong></div>
+        <div class="metric bad"><span>Casi malevoli fra questi</span><strong>12 / 12</strong></div>
+        <div class="metric good"><span>Fallimenti del modello, dopo</span><strong>0</strong></div>
+      </div>
+      <div class="prose">
+        <p>Il modello non era in difficoltà. Leggendo il suo output grezzo, riconosceva il phishing correttamente, con l'intento giusto e i codici di motivazione giusti. Rispondeva:</p>
+        <pre><code>{ "verdict": "likely_phishing", "intent": "credential_theft", "confidence": 5 }</code></pre>
+        <p>Il parser esige una confidenza fra 0 e 1. Il modello aveva risposto su una scala da uno a cinque. In alcuni casi restituiva anche <code>"impersonation": "none"</code> dove serviva un booleano JSON. Il prompt chiedeva un campo chiamato <code>confidence</code> e non diceva mai cosa fosse una confidenza. Il prompt di classificazione, scritto prima, lo dichiarava — <code>number 0..1</code> — ed era l'unico dei tre a non fallire.</p>
+        <p>Ogni risposta scartata veniva sostituita da un giudizio “incerto”. Vale la pena dirlo senza attenuazioni: <strong>la protezione dalle minacce girava sui soli segnali lessicali deterministici, proprio sui messaggi per cui esiste.</strong> Il sottosistema non era spento. Veniva interrogato e poi ignorato.</p>
+        <p>La correzione è un paragrafo di prompt che dichiara il contratto che il parser già imponeva. La parte interessante è ciò che non è cambiato: precisione e recall sono rimaste a <strong>0,9167</strong>, esattamente dov'erano. Il livello deterministico stava reggendo da solo l'intero risultato.</p>
+      </div>
+      <blockquote class="lesson"><p>Una metrica che non si muove quando un sottosistema muore non stava misurando quel sottosistema. Un punteggio aggregato può nascondere un componente silenziosamente disattivato da sempre.</p></blockquote>
+    </section>
+
+    <section class="wrap entry" id="ricevute">
+      <div class="eyebrow">02 · Ricevute di errore</div>
+      <h2>Una ricevuta che non sapeva rispondere all'unica domanda che conta.</h2>
+      <p class="section-intro">Quando una scansione viene interrotta, il record locale che lasciava conteneva <code>processed = 0</code> e <code>applied = 0</code> — gli stessi valori che lascia un'esecuzione fallita prima di cominciare.</p>
+      <div class="prose">
+        <p>Il record non permetteva quindi di distinguere una scansione che non aveva mai toccato la casella da una fermatasi a metà dello spostamento dei messaggi. Dopo un errore la domanda dell'utente non è “qual è stato il problema”. È <strong>“ha toccato la mia casella?”</strong> Un valore predefinito risponde in modo sbagliato avendo però l'aspetto di una risposta.</p>
+        <p>Il record contiene ora la fase realmente raggiunta, il conteggio realmente elaborato e un esito esplicito della casella fra <code>changed</code>, <code>unchanged</code> e <code>unknown</code>, dove <code>unknown</code> significa che una modifica era già iniziata e la casella va verificata. Un'interruzione reale ora si legge così:</p>
+        <pre><code>{ "status": "failed", "phase": "classification", "processed": 0,
+  "mailbox_outcome": "unchanged" }</code></pre>
+        <p>Questo è dimostrabile. La casella non è stata toccata, e il record lo afferma.</p>
+        <p>La metà onesta di questo capitolo è ciò che non abbiamo fatto. I record scritti prima della modifica non possono essere aggiornati. Uno completato conserva un esito dimostrabile, perché i suoi conteggi erano sempre stati reali; uno fallito dichiara che il proprio esito non è dimostrabile, perché non lo è mai stato. Ricostruire una storia mai registrata avrebbe prodotto un documento più soddisfacente e meno affidabile.</p>
+      </div>
+    </section>
+
+    <section class="wrap entry" id="test">
+      <div class="eyebrow">03 · La suite di test</div>
+      <h2>Una suite verde che non dimostrava nulla.</h2>
+      <p class="section-intro">L'azione di revisione, che permette di riesaminare ciò che il sistema ha proposto, restituiva <strong>0 candidati</strong> per una scansione che aveva appena spostato 64 messaggi nella cartella di quarantena reversibile.</p>
+      <div class="prose">
+        <p>Uno spostamento IMAP assegna al messaggio un UID nuovo nella cartella di destinazione, quindi l'identità registrata durante la scansione non corrisponde più a nulla di visibile alla revisione. Il ripiego previsto era il puntatore <code>COPYUID</code> di UIDPLUS restituito da <code>MOVE</code>.</p>
+        <p>Quel puntatore non arriva mai. <code>imaplib.uid()</code> restituisce le risposte untagged <code>FETCH</code>; RFC 6851 colloca <code>COPYUID</code> nella riga tagged <code>OK</code>; e un <code>MOVE</code> non produce alcun <code>FETCH</code>. La tabella destinata a conservarli è rimasta vuota su <strong>121 quarantene reali</strong>.</p>
+        <p>Il test unitario passava sempre. Il suo client finto rispondeva a uno spostamento con:</p>
+        <pre><code>return "OK", [b"moved"]</code></pre>
+        <p>Un server reale non mette <code>COPYUID</code> lì, e nemmeno il finto ci metteva qualcosa. Il test verificava che il codice gestisse una forma di risposta che il protocollo non produce in quella posizione: poteva soltanto passare.</p>
+      </div>
+      <blockquote class="lesson"><p>Un sostituto più semplice del protocollo mette alla prova il codice contro un server che non esiste. Più la suite è verde, più a lungo la lacuna sopravvive.</p></blockquote>
+      <div class="prose">
+        <p>Il ricollegamento usa ora il <code>Message-ID</code> RFC, che sopravvive allo spostamento ed è già conservato soltanto come HMAC, mai come testo dell'intestazione. Misurato su una casella reale con 65 messaggi in quarantena:</p>
+      </div>
+      <div class="metric-row">
+        <div class="metric bad"><span>Ritrovati per UID</span><strong>0</strong></div>
+        <div class="metric bad"><span>Ritrovati per puntatore</span><strong>0</strong></div>
+        <div class="metric good"><span>Ritrovati per Message-ID</span><strong>65</strong></div>
+      </div>
+      <div class="prose">
+        <p>Rimuovere il percorso morto ha fatto emergere un secondo difetto introdotto dalla prima correzione: il percorso vecchio escludeva anche le proposte già valutate dall'utente, quello nuovo no, perché il controllo a monte usava l'identità successiva allo spostamento. Senza, una proposta già giudicata sarebbe tornata a chiedere. Sostituire un meccanismo significa ereditare ogni garanzia che offriva in silenzio.</p>
+      </div>
+    </section>
+
+    <section class="wrap entry" id="rifiuto">
+      <div class="eyebrow">04 · Un limite dichiarato</div>
+      <h2>Una facoltà che il sistema si rifiuta di avere.</h2>
+      <p class="section-intro">La protezione dalle minacce combina segnali deterministici su identità, collegamenti e autenticazione con un giudizio semantico del modello locale. La combinazione è additiva: il punteggio semantico si somma a quello deterministico e non può mai sottrarvisi. Un verdetto benigno contribuisce zero.</p>
+      <div class="prose">
+        <p>Questo ha un costo, e il costo è il punto. È stato aggiunto un terzo livello di protezione che interroga il modello locale soltanto sui messaggi che il livello tecnico segnala già come allarme, invece che su ogni messaggio con una qualsiasi anomalia. Spende molte meno inferenze e può rafforzare un rilevamento. <strong>Non può scartare un falso positivo</strong>, per costruzione, e nessuna configurazione glielo consente.</p>
+        <p>L'alternativa — lasciare che un modello linguistico revochi un rilevamento di sicurezza deterministico — significherebbe accettare la confidenza di un modello come motivo per archiviare prove che quel modello non sa verificare, proprio sui messaggi che un attaccante sta cercando di far passare. Un test blocca ora questa modifica, così indebolirla deve essere una decisione e non un riordino del codice.</p>
+      </div>
+      <blockquote class="lesson"><p>Dichiarare cosa a un sistema non è permesso fare, e quanto costa quel rifiuto, pesa più di qualsiasi affermazione su ciò che sa fare.</p></blockquote>
+    </section>
+
+    <section class="wrap entry" id="rosetta">
+      <div class="eyebrow">05 · La macchina ospite</div>
+      <h2>Il Mac a cui è stato detto che non era un Mac.</h2>
+      <p class="section-intro">L'applicazione riportava <em>“MLX richiede attualmente macOS su Apple Silicon”</em> su un Mac Apple Silicon, e disattivava la propria azione principale. La riga di stato diceva <code>Sistema rilevato: Darwin x86_64</code>.</p>
+      <div class="prose">
+        <p>LaunchServices avviava il bundle tradotto da Rosetta. Ogni processo figlio eredita l'architettura tradotta, MLX non ha alcuna build x86_64, e così tutti e tre i profili di modello locale risultavano non disponibili su una macchina che li supporta pienamente.</p>
+        <p>Il bundle dichiara ora <code>LSRequiresNativeExecution</code> e una priorità di architettura con <code>arm64</code> in testa, così la traduzione viene rifiutata all'origine invece che riparata a posteriori; una guardia nel launcher resta come rete di sicurezza per una shell già tradotta.</p>
+        <p>Il messaggio contava quanto il difetto. Incolpare l'hardware spinge chi legge a valutare l'acquisto di un altro computer per quello che è un problema di configurazione dell'avvio. La diagnosi ora distingue un processo tradotto da una piattaforma davvero non supportata, e dice quale dei due sia.</p>
+      </div>
+      <blockquote class="lesson"><p>Un messaggio di errore fa parte della superficie di sicurezza. Una spiegazione sicura di sé e sbagliata costa a chi legge più di un onesto “non determinato”.</p></blockquote>
+    </section>
+
+    <section class="wrap entry" id="verifica">
+      <div class="eyebrow">Riproducibilità</div>
+      <h2>Cosa può verificare chi legge.</h2>
+      <p class="section-intro">La diagnostica di sicurezza è riproducibile senza account, senza accesso di rete e senza toccare alcuna casella.</p>
+      <pre><code>python -m inboxlume.desktop_worker threat-backtest --backend gemma12</code></pre>
+      <div class="prose">
+        <p>Valuta in memoria il corpus incluso <code>synthetic-threat-corpus-v1</code> e produce solo output aggregato: conteggi della matrice di confusione, metriche per vocabolario controllato di lingua e scenario, il numero di fallimenti del modello e un'impronta SHA-256 del corpus. Non contiene testo dei casi né identità dei messaggi, e non autorizza mai un'azione sulla casella.</p>
+      </div>
+    </section>
+
+    <section class="wrap entry" id="limiti">
+      <div class="callout">
+        <div class="eyebrow">Limiti onesti</div>
+        <h2>Cosa non possiamo ancora affermare.</h2>
+        <p>Il corpus attuale è di 25 casi. Dopo la correzione del prompt l'esecuzione riporta precisione 0,9167, recall 0,9167, zero fallimenti del modello — e continua a non superare la propria diagnostica, perché un messaggio benigno italiano viene segnalato, con un tasso di falsi positivi osservato di 0,0769 contro un obiettivo di 0,05. Un caso malevolo italiano resta non rilevato.</p>
+        <div class="metric-row">
+          <div class="metric"><span>Casi nel corpus</span><strong>25</strong></div>
+          <div class="metric bad"><span>Falsi positivi osservati</span><strong>0,0769</strong></div>
+          <div class="metric bad"><span>Limite superiore 95%</span><strong>0,33</strong></div>
+        </div>
+        <div class="status-list">
+          <div class="status-item future">Nessun pacchetto costruito e collaudato sulle tre piattaforme dichiarate</div>
+          <div class="status-item future">Nessuna licenza scelta</div>
+          <div class="status-item future">Comportamento dei provider verificato su un solo account reale, non su una matrice di prova</div>
+          <div class="status-item future">Release gate chiuso</div>
+        </div>
+        <p class="fineprint">Questo diario è la prova che il sistema viene misurato, non la prova che sia pronto.</p>
+      </div>
+      <blockquote class="lesson"><p>L'affermazione che questo progetto è disposto a difendere è ristretta: ogni azione automatica dovrebbe saper dichiarare cosa ha esaurito l'utilità del messaggio, quale evidenza specifica dell'account la sostiene e quale facoltà limitata e reversibile l'ha autorizzata. Tutto quanto sopra è il lavoro di scoprire dove quell'affermazione non è ancora vera.</p></blockquote>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-grid">
+      <div><a class="brand" href="index.html"><span class="brand-mark">IL</span><strong>InboxLume</strong></a></div>
+      <div class="privacy-note">Nessuna analitica, nessun cookie, nessun font remoto, nessuno script di terze parti. Questa è un'anteprima pubblica di sviluppo sanificata, non una release supportata. Sorgente e documentazione sono distribuiti con licenza Apache-2.0.</div>
+    </div>
+  </footer>
+</body>
+</html>

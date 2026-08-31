@@ -9,6 +9,7 @@ from pathlib import Path
 from scripts.audit_repository_privacy import (
     SECRET_SIGNATURES,
     binary_metadata_findings,
+    history_email_is_public,
 )
 
 
@@ -43,6 +44,15 @@ class RepositoryPrivacyTests(unittest.TestCase):
             "metadati_exif_immagine",
             binary_metadata_findings(png_with_exif),
         )
+
+    def test_public_history_accepts_only_noreply_identities(self) -> None:
+        self.assertTrue(
+            history_email_is_public(
+                "134018609+VellBlue" + "@" + "users.noreply.github.com"
+            )
+        )
+        self.assertTrue(history_email_is_public("noreply" + "@" + "anthropic.com"))
+        self.assertFalse(history_email_is_public("owner" + "@" + "example.net"))
 
     @unittest.skipUnless(shutil.which("git"), "git non disponibile")
     def test_private_runtime_artifacts_are_ignored(self) -> None:

@@ -95,20 +95,21 @@ Il contratto dei profili e i limiti di compatibilità sono descritti in
 
 ## Milestone 6 — Pubblicazione
 
-Stato: predisposizione locale completata; pubblicazione bloccata.
+Stato: repository e GitHub Pages autorizzati come anteprima pubblica di sviluppo;
+release dell'app bloccata.
 
 - CI di test sui tre sistemi e packaging smoke test manuale, senza upload;
 - packaging unsigned predisposto e template di firma/installer per i tre sistemi;
-- release gate versionato, chiuso finché perimetro, licenza, asset, pacchetti e
-  revisione di sicurezza non saranno completati e autorizzati;
+- release gate versionato, chiuso finché perimetro, pacchetti e revisione di
+  sicurezza non saranno completati e autorizzati;
 - documentazione utente, contributi, changelog, inventario permessi e checklist;
-- screenshot sintetico, articolo tecnico e sito statico GitHub Pages predisposti
-  localmente, senza analytics o deploy;
+- screenshot sintetico, articolo tecnico e sito statico GitHub Pages bilingue,
+  senza analytics e pubblicato direttamente da `main/docs`;
 - audit privacy integrato nella CI.
 
-Non esistono workflow di release, pubblicazione artifact o GitHub Pages. Firma,
-notarizzazione e release pubblica restano intenzionalmente da eseguire soltanto dopo
-le funzionalità concordate e una nuova autorizzazione esplicita.
+Non esistono workflow di release o pubblicazione di artefatti. Firma,
+notarizzazione e release pacchettizzata restano intenzionalmente da eseguire
+soltanto dopo le funzionalità concordate e una nuova autorizzazione esplicita.
 
 ## Milestone 7 — Safety Governor personale, prima fase
 

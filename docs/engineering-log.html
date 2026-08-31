@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Five measured failures found the first time InboxLume met a real local model, a real IMAP server and a real Mac, with the numbers from each run.">
+  <meta name="color-scheme" content="dark">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="What we found when we ran InboxLume">
+  <meta property="og:description" content="Five measured failures from a real local model, a real IMAP server, and a real Mac.">
+  <meta property="og:url" content="https://vellblue.github.io/inboxlume/engineering-log.html">
+  <title>What we found when we ran it — InboxLume engineering log</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="canonical" href="https://vellblue.github.io/inboxlume/engineering-log.html">
+  <link rel="alternate" hreflang="en" href="https://vellblue.github.io/inboxlume/engineering-log.html">
+  <link rel="alternate" hreflang="it" href="https://vellblue.github.io/inboxlume/it/engineering-log.html">
+  <link rel="stylesheet" href="assets/site.css?v=20260831">
+</head>
+<body>
+  <div class="preflight">Public development preview — no supported packaged release is available yet.</div>
+  <header class="wrap">
+    <nav aria-label="Main navigation">
+      <a class="brand" href="index.html"><span class="brand-mark">IL</span><strong>InboxLume</strong></a>
+      <div class="nav-links">
+        <a href="it/engineering-log.html" lang="it">Italiano</a>
+        <a href="index.html">Overview</a>
+        <a href="#model">Model</a><a href="#receipt">Receipts</a>
+        <a href="#tests">Tests</a><a href="#refusal">Refusal</a><a href="#limits">Limits</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <div class="wrap" style="padding-top:24px">
+      <div class="eyebrow">Engineering log · 31 August 2026</div>
+      <h1>What we found when we ran it</h1>
+      <p class="lead">Design documents describe what a system is supposed to do. This one records what happened the first time InboxLume met a real local model, a real IMAP server and a real Mac, on the same day.</p>
+      <div class="prose">
+        <p>Every number below comes from a run recorded in this repository, and the safety diagnostic that produced the first of them can be re-run by any reader without connecting an email account.</p>
+        <p>The entries are not curiosities. Each one is a class of failure that a design document cannot catch, because in every case the code was doing exactly what it had been written to do.</p>
+      </div>
+    </div>
+
+    <section class="wrap entry" id="model">
+      <div class="eyebrow">01 · The local model</div>
+      <h2>The model was right, and the answer was thrown away.</h2>
+      <p class="section-intro">The synthetic threat backtest was run for the first time against a real local model rather than a test double: Gemma 12B through MLX on Apple Silicon, over the 25 packaged cases, with no account and no network.</p>
+      <div class="metric-row">
+        <div class="metric bad"><span>Model failures, before</span><strong>14 / 25</strong></div>
+        <div class="metric bad"><span>Malicious cases among them</span><strong>12 / 12</strong></div>
+        <div class="metric good"><span>Model failures, after</span><strong>0</strong></div>
+      </div>
+      <div class="prose">
+        <p>The model was not confused. Reading its raw output, it identified the phishing correctly, with the right intent and the right reason codes. It answered:</p>
+        <pre><code>{ "verdict": "likely_phishing", "intent": "credential_theft", "confidence": 5 }</code></pre>
+        <p>The parser requires a confidence between 0 and 1. The model had answered on a one-to-five scale. Some cases also returned <code>"impersonation": "none"</code> where a JSON boolean was required. The prompt asked for a field called <code>confidence</code> and never said what a confidence was. The classification prompt, written earlier, did say <code>number 0..1</code> — and it was the only one of the three that did not fail.</p>
+        <p>Every rejected answer was replaced by an “uncertain” verdict. The consequence is worth stating plainly: <strong>threat protection was running on deterministic lexical signals alone, on precisely the messages it exists for.</strong> The subsystem was not switched off. It was being asked a question and then ignored.</p>
+        <p>The fix is one paragraph of prompt stating the contract the parser already enforced. The interesting part is what did not change: precision and recall stayed at <strong>0.9167</strong>, exactly where they had been. The deterministic layer had been carrying the entire result on its own.</p>
+      </div>
+      <blockquote class="lesson"><p>A metric that does not move when a subsystem dies was never measuring that subsystem. An aggregate score can hide a component that has been silently disabled for its whole life.</p></blockquote>
+    </section>
+
+    <section class="wrap entry" id="receipt">
+      <div class="eyebrow">02 · Failure receipts</div>
+      <h2>A receipt that could not answer the only question that matters.</h2>
+      <p class="section-intro">When a scan is interrupted, the local record it left behind used to contain <code>processed = 0</code> and <code>applied = 0</code> — the same values a run leaves when it fails before starting.</p>
+      <div class="prose">
+        <p>The record was therefore unable to distinguish a scan that never touched the mailbox from one that stopped halfway through moving messages. After a failure, the user's question is not “what was the error”. It is <strong>“did it touch my mailbox?”</strong> A default value answers that question wrongly while looking like an answer.</p>
+        <p>The record now carries the phase actually reached, the count actually processed, and an explicit mailbox outcome of <code>changed</code>, <code>unchanged</code>, or <code>unknown</code>, where <code>unknown</code> means a mutation had already begun and the mailbox must be checked. A real interrupted run now reads:</p>
+        <pre><code>{ "status": "failed", "phase": "classification", "processed": 0,
+  "mailbox_outcome": "unchanged" }</code></pre>
+        <p>That is provable. The mailbox was not touched, and the record says so.</p>
+        <p>The honest half of this entry is what we did not do. Records written before the change cannot be upgraded. A completed one keeps a provable outcome, because its counts were always real; a failed one reports that its outcome is not provable, because it never was. Reconstructing a history that was not recorded would have produced a more satisfying document and a less trustworthy one.</p>
+      </div>
+    </section>
+
+    <section class="wrap entry" id="tests">
+      <div class="eyebrow">03 · The test suite</div>
+      <h2>A test suite that was green and proved nothing.</h2>
+      <p class="section-intro">The review action, which lets a user re-examine what the system proposed, returned <strong>0 candidates</strong> for a scan that had just moved 64 messages into the reversible quarantine folder.</p>
+      <div class="prose">
+        <p>An IMAP move assigns the message a new UID in the destination folder, so the identity recorded during the scan no longer matches anything the review can see. The intended fallback was the UIDPLUS <code>COPYUID</code> pointer returned by <code>MOVE</code>.</p>
+        <p>That pointer never arrives. <code>imaplib.uid()</code> returns the untagged <code>FETCH</code> responses; RFC 6851 places <code>COPYUID</code> in the tagged <code>OK</code> line; a <code>MOVE</code> produces no <code>FETCH</code> at all. The table meant to hold those pointers was empty across <strong>121 real quarantine operations</strong>.</p>
+        <p>The unit test passed throughout. Its fake client answered a move with:</p>
+        <pre><code>return "OK", [b"moved"]</code></pre>
+        <p>A real server does not put <code>COPYUID</code> there, and the fake did not put anything there either. The test asserted that the code handled a response shape the protocol never produces in that position, so it could only ever pass.</p>
+      </div>
+      <blockquote class="lesson"><p>A fake that is simpler than the protocol tests your code against a server that does not exist. The greener the suite, the longer the gap survives.</p></blockquote>
+      <div class="prose">
+        <p>The relocation now uses the RFC <code>Message-ID</code>, which survives the move and is already stored only as an HMAC, never as header text. Measured against a real mailbox holding 65 quarantined messages:</p>
+      </div>
+      <div class="metric-row">
+        <div class="metric bad"><span>Found by UID</span><strong>0</strong></div>
+        <div class="metric bad"><span>Found by pointer</span><strong>0</strong></div>
+        <div class="metric good"><span>Found by Message-ID</span><strong>65</strong></div>
+      </div>
+      <div class="prose">
+        <p>Removing the dead path exposed a second defect that the first fix had introduced: the old route also excluded proposals the user had already answered, and the new one did not, because the check upstream used the post-move identity. Without that, a proposal already judged would have been asked again. Replacing a mechanism means inheriting every guarantee it quietly provided.</p>
+      </div>
+    </section>
+
+    <section class="wrap entry" id="refusal">
+      <div class="eyebrow">04 · A stated limit</div>
+      <h2>A capability the system refuses to have.</h2>
+      <p class="section-intro">Threat protection combines deterministic signals over identity, links and authentication with a semantic judgement from the local model. The combination is additive: the semantic score is added to the deterministic one and can never subtract from it. A benign verdict contributes zero.</p>
+      <div class="prose">
+        <p>This has a cost, and the cost is the point. A third protection level was added so the local model is consulted only on messages the technical layer already reports as an alert, instead of on every message carrying any anomaly. It spends far fewer inferences and can strengthen a finding. <strong>It cannot clear a false positive</strong>, by construction, and no configuration makes it able to.</p>
+        <p>The alternative — letting a language model withdraw a deterministic security finding — would mean accepting a model's confidence as grounds to dismiss evidence it cannot audit, on exactly the messages an attacker is trying to get through. A test now blocks that change, so weakening it has to be a decision rather than a refactor.</p>
+      </div>
+      <blockquote class="lesson"><p>Stating what a system is not allowed to do, and what that refusal costs, carries more weight than any claim about what it can do.</p></blockquote>
+    </section>
+
+    <section class="wrap entry" id="rosetta">
+      <div class="eyebrow">05 · The host machine</div>
+      <h2>The Mac that was told it was not a Mac.</h2>
+      <p class="section-intro">The application reported <em>“MLX currently requires macOS on Apple Silicon”</em> on an Apple Silicon Mac, and disabled its primary action. The status line read <code>Detected system: Darwin x86_64</code>.</p>
+      <div class="prose">
+        <p>LaunchServices was starting the bundle translated under Rosetta. Every child process inherits the translated architecture, MLX ships no x86_64 build, and so all three local model profiles were reported unavailable on a machine that fully supports them.</p>
+        <p>The bundle now declares <code>LSRequiresNativeExecution</code> and an architecture priority with <code>arm64</code> first, so translation is refused at the origin rather than repaired afterwards; a guard in the launcher remains as a backstop for an already translated shell.</p>
+        <p>The message mattered as much as the bug. Blaming the hardware sends a user to consider buying a different computer for what is a launch configuration problem. The diagnosis now distinguishes a translated process from a genuinely unsupported platform, and says which one it is.</p>
+      </div>
+      <blockquote class="lesson"><p>An error message is part of the safety surface. A confident, wrong explanation costs the user more than an honest “not determined”.</p></blockquote>
+    </section>
+
+    <section class="wrap entry" id="verify">
+      <div class="eyebrow">Reproducibility</div>
+      <h2>What a reader can check.</h2>
+      <p class="section-intro">The safety diagnostic is reproducible without an account, without network access and without touching a mailbox.</p>
+      <pre><code>python -m inboxlume.desktop_worker threat-backtest --backend gemma12</code></pre>
+      <div class="prose">
+        <p>It evaluates the packaged <code>synthetic-threat-corpus-v1</code> in memory and emits aggregate output only: confusion counts, metrics by controlled language and scenario vocabulary, the model-failure count, and a SHA-256 fingerprint of the corpus. It contains no case text and no message identity, and it never authorises a mailbox action.</p>
+      </div>
+    </section>
+
+    <section class="wrap entry" id="limits">
+      <div class="callout">
+        <div class="eyebrow">Honest limits</div>
+        <h2>What we still cannot claim.</h2>
+        <p>The current corpus is 25 cases. After the prompt fix the run reports precision 0.9167, recall 0.9167, zero model failures — and still does not pass its own diagnostic, because one benign Italian message is flagged, giving an observed false-positive rate of 0.0769 against a 0.05 target. One malicious Italian case is still missed.</p>
+        <div class="metric-row">
+          <div class="metric"><span>Cases in corpus</span><strong>25</strong></div>
+          <div class="metric bad"><span>Observed FP rate</span><strong>0.0769</strong></div>
+          <div class="metric bad"><span>95% upper bound on FP</span><strong>0.33</strong></div>
+        </div>
+        <div class="status-list">
+          <div class="status-item future">No packages built and exercised on the three declared platforms</div>
+          <div class="status-item future">No licence selected</div>
+          <div class="status-item future">Provider behaviour verified on a single real account, not a test matrix</div>
+          <div class="status-item future">Release gate closed</div>
+        </div>
+        <p class="fineprint">This log is evidence that the system is being measured, not evidence that it is ready.</p>
+      </div>
+      <blockquote class="lesson"><p>The claim this project is willing to defend is narrow: every automatic action should be able to state what ended the message's usefulness, which account-specific evidence supports it, and which limited reversible capability authorised it. Everything above is the work of finding out where that claim is not yet true.</p></blockquote>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-grid">
+      <div><a class="brand" href="index.html"><span class="brand-mark">IL</span><strong>InboxLume</strong></a></div>
+      <div class="privacy-note">No analytics, cookies, remote fonts, or third-party scripts. This is a sanitised public development preview, not a supported release. Source and documentation are licensed under Apache-2.0.</div>
+    </div>
+  </footer>
+</body>
+</html>

@@ -2,8 +2,12 @@
 
 > [English article](../ARTICLE.md) · Versione italiana curata per il proprio contesto
 
-> Bozza editoriale per GitHub Pages. Stato: predisposta localmente, da aggiornare
-> con benchmark e funzioni effettivamente incluse prima della pubblicazione.
+> Articolo pubblico di sviluppo. Descrive lo snapshot corrente del sorgente, non
+> una release pacchettizzata supportata, e continuerà a essere aggiornato rispetto
+> a funzioni e benchmark misurati.
+
+> Per i risultati misurati durante esecuzioni reali di sviluppo, consulta il
+> [diario di ingegneria](engineering-log.html).
 
 Una casella personale non è soltanto un elenco di messaggi. È una cronologia di
 acquisti, relazioni, accessi, scuola, salute, lavoro e periodi della vita. Proprio
@@ -78,6 +82,28 @@ sono separati e allowlistati.
 Questo non rende impossibile ogni bug o compromissione del sistema operativo. Rende
 però il perimetro più piccolo, testabile e onesto rispetto a un agente generico.
 
+## La protezione dalle minacce non può autorizzare cleanup
+
+La protezione da phishing e truffe è un percorso protettivo separato, non un altro
+classificatore per il cleanup. Un livello deterministico controlla evidenza
+circoscritta su identità, autenticazione, link, anomalie Unicode e richieste
+sospette. Un secondo passaggio del modello locale è facoltativo e mirato: nella
+modalità consigliata parte soltanto quando il livello tecnico ha già rilevato un
+allarme.
+
+La combinazione è volutamente additiva. Un giudizio semantico malevolo può
+rafforzare evidenza tecnica indipendente, ma una risposta benigna del modello non
+può cancellarla. Un risultato ad alto rischio può imporre Revisione e aggiungere un
+indicatore nativo visibile — l'etichetta Gmail `InboxLume/Sospetto phishing` oppure
+il flag additivo Yahoo `\Flagged` — preservando Inbox, etichette e flag esistenti.
+Non può mai autorizzare Quarantena, Cestino o eliminazione permanente.
+
+Questo confine è stato esercitato sul corpus sintetico bilingue incluso. La prima
+esecuzione con un modello reale ha inoltre scoperto un disallineamento tra prompt e
+parser che il punteggio aggregato di precisione non mostrava: errore misurato e
+correzione sono descritti nel
+[diario di ingegneria](engineering-log.html#modello).
+
 ## Che cosa significa davvero “locale”
 
 La parola *locale* viene spesso usata senza specificarne il confine. Per InboxLume
@@ -97,6 +123,26 @@ che un modello locale sia automaticamente sicuro: runtime, endpoint loopback,
 percorsi cache e possibilità di rete devono essere controllati. La direzione futura
 *Verifiable Locality* aggiungerà sandbox del sistema operativo e un resoconto delle
 capacità effettivamente usate durante ogni esecuzione.
+
+## Evidenza operativa senza riaprire i messaggi
+
+L'interfaccia desktop include ora una dashboard operativa separata per account.
+Legge gli stessi registri aggregati privati usati dai componenti di sicurezza e
+mostra, per l'account e il modello selezionati, analisi completate, spostamenti
+reversibili realmente eseguiti verso la Quarantena, messaggi sospetti protetti,
+prove verificate da Proof of Obsolescence, attività di LumeGraph e avanzamento
+verso la soglia di evidenza del Safety Governor.
+
+Durante una scansione la dashboard identifica l'esecuzione in corso e dichiara
+esplicitamente se protezione antiphishing, Governor operativo, LumeGraph e Proof of
+Obsolescence sono attivi. Le selezioni bloccate conservano una spunta visibile, così
+un controllo disabilitato non diventa un quadrato grigio ambiguo. L'aggiornamento
+dei conteggi non riapre messaggi e non espone ID del provider o testo in chiaro.
+
+Il pannello evita volutamente di inventare grafici statistici da semplici totali
+cumulativi. Un andamento diventa significativo soltanto quando esiste una serie
+temporale comparabile per esecuzione; fino ad allora, contatori precisi e la soglia
+reale del Governor comunicano più di una curva decorativa.
 
 ## Apprendere senza costruire un nuovo archivio della persona
 
@@ -149,8 +195,11 @@ preferenza ordinaria Cestino diretto resta indipendente con i suoi
 vincoli. L'autorità del Governor sul Cestino è invece una capacità distinta e più
 severa: richiede un modello supportato e almeno 299 revisioni conclusive senza
 errori sia nell'inviluppo globale sia nella famiglia. Cancellazione permanente e
-svuotamento del Cestino restano fuori dalla sua autorità. Gestione della deriva e
-*Counterfactual Safety Lab* restano milestone successivi.
+svuotamento del Cestino restano fuori dalla sua autorità. La deriva temporale delle
+preferenze è già implementata come ingresso esclusivamente protettivo: evidenza
+recente qualificata di Tieni, ripristino, stella o importanza può limitare la
+famiglia interessata, mentre un calo d'interesse non può mai sbloccare più cleanup.
+*Counterfactual Safety Lab* resta una milestone di ricerca.
 
 Riferimenti metodologici di partenza includono il lavoro sui set conformali con
 falsi positivi limitati e sulle policy di astensione conformalizzate:
@@ -220,9 +269,10 @@ decisione in una capability firmata, limitata a un ID, una destinazione e una
 scadenza.
 
 Altre linee approvate sono il rilevamento di comunicazioni attese ma mancanti, una
-baseline personale antiphishing e **LumeReply**, consigliere on-demand che copre
-domande e impegni senza leggere Posta inviata e senza spedire nulla. Sono ricerca
-futura: non devono apparire come funzioni già disponibili.
+baseline personale dei mittenti oltre l'attuale protezione tecnica e semantica
+dalle minacce e **LumeReply**, consigliere on-demand che copre domande e impegni
+senza leggere Posta inviata e senza spedire nulla. Sono ricerca futura: non devono
+apparire come funzioni già disponibili.
 
 Per l'estrazione strutturata da email e i suoi vincoli di privacy, un riferimento
 utile è il lavoro di Google Research:
@@ -230,16 +280,19 @@ https://research.google/pubs/anatomy-of-a-privacy-safe-large-scale-information-e
 
 ## Stato e onestà della release
 
-InboxLume è pensato come progetto gratuito e open source su GitHub, non come
-servizio commerciale. In questa fase, però, la licenza non è ancora stata scelta:
-finché non verrà aggiunta, sarebbe scorretto presentare la cartella di sviluppo
-come una release open source già licenziata.
+InboxLume è un progetto gratuito e open source su GitHub, non un servizio
+commerciale. Sorgente e documentazione di progetto sono distribuiti con licenza
+Apache-2.0; pesi dei modelli, dipendenze di terze parti e dati dell'utente conservano
+le rispettive condizioni. Il repository pubblico resta uno snapshot di sviluppo,
+non una release pacchettizzata supportata.
 
-GUI, Gmail/Yahoo, più account, quiz, scansioni one-shot, profili modello e schedule
-nativa hanno una base funzionante. CI, packaging e sito sono predisposti, ma il
-release gate resta deliberatamente chiuso. Prima della pubblicazione servono almeno
-funzioni concordate, licenza, test su macchine pulite, firme, revisione dei permessi,
-benchmark più robusti e asset sanificati approvati.
+GUI, Gmail/Yahoo, più account, quiz, scansioni one-shot, profili modello, schedule
+nativa, protezione locale dalle minacce, LumeGraph, Proof of Obsolescence, deriva
+temporale, evidenza del Safety Governor e dashboard operativa per account hanno una
+base funzionante. CI e sito sono pubblici, ma il release gate separato resta
+deliberatamente chiuso. Prima di una release servono almeno funzioni concordate,
+test su macchine pulite, firme, revisione dei permessi, benchmark più robusti e
+asset di release approvati.
 
 InboxLume non prometterà sicurezza al 100%, non chiamerà una confidenza LLM
 “probabilità” senza calibrazione e non dichiarerà primati mondiali senza una ricerca

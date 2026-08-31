@@ -48,6 +48,8 @@ try:
         QRadioButton,
         QScrollArea,
         QSpinBox,
+        QStyle,
+        QStyleOptionButton,
         QStyleFactory,
         QTextEdit,
         QTimeEdit,
@@ -91,6 +93,7 @@ from .runtime import (
     default_runtime_config_path,
     local_lumegraph_summary,
     local_obsolescence_proof_summary,
+    local_operational_status_summary,
     local_scan_duration_estimate,
     local_safety_governor_report,
     local_threat_assessment_summary,
@@ -104,6 +107,7 @@ from .safety_governor import (
     DEFAULT_MINIMUM_CONCLUSIVE_REVIEWS,
     DIRECT_TRASH_MINIMUM_CONCLUSIVE_REVIEWS,
     GovernorStatus,
+    SafetyGovernorReport,
     operational_governor_available,
     operational_quarantine_gate,
 )
@@ -342,6 +346,116 @@ QCheckBox::indicator:disabled {
     background: #E8EEEB;
     border-color: #B9C7C2;
 }
+QCheckBox::indicator:checked:disabled {
+    background: #19875F;
+    border-color: #126A4A;
+}
+QCheckBox[scanLocked="true"]:checked:disabled {
+    color: #176B4E;
+    font-weight: 700;
+}
+QFrame#operationalStatusCard {
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 1, y2: 1,
+        stop: 0 #102B24, stop: 0.62 #173C32, stop: 1 #1B493C
+    );
+    border: 1px solid #28594A;
+    border-radius: 18px;
+}
+QLabel#operationalEyebrow {
+    color: #75DDB5;
+    font-size: 11px;
+    font-weight: 800;
+}
+QLabel#operationalTitle {
+    color: #F5FCF9;
+    font-size: 22px;
+    font-weight: 780;
+}
+QLabel#operationalDescription {
+    color: #B8CDC5;
+    font-size: 13px;
+}
+QLabel#operationalBadge {
+    color: #B9F5DB;
+    background: #235344;
+    border: 1px solid #397460;
+    border-radius: 11px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 750;
+}
+QLabel#operationalBadge[running="true"] {
+    color: #102B24;
+    background: #74E1B6;
+    border-color: #8DEAC5;
+}
+QFrame#metricTile {
+    background: #1B4035;
+    border: 1px solid #2C5A4B;
+    border-radius: 13px;
+}
+QLabel#metricValue {
+    color: #FFFFFF;
+    font-size: 27px;
+    font-weight: 800;
+}
+QLabel#metricValue[tone="mint"] { color: #72E2B5; }
+QLabel#metricValue[tone="amber"] { color: #FFD080; }
+QLabel#metricValue[tone="sky"] { color: #87CCFF; }
+QLabel#metricLabel {
+    color: #D7E8E1;
+    font-size: 12px;
+    font-weight: 700;
+}
+QLabel#metricDetail {
+    color: #8FAFA3;
+    font-size: 11px;
+}
+QFrame#moduleTile {
+    background: #15372E;
+    border: 1px solid #285347;
+    border-radius: 11px;
+}
+QLabel#moduleIcon {
+    min-width: 24px;
+    max-width: 24px;
+    min-height: 24px;
+    max-height: 24px;
+    color: #77968B;
+    background: #203F36;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 900;
+}
+QLabel#moduleIcon[active="true"] {
+    color: #0D2A21;
+    background: #70DFAF;
+}
+QLabel#moduleName {
+    color: #EDF8F4;
+    font-size: 12px;
+    font-weight: 720;
+}
+QLabel#moduleState {
+    color: #96B6AA;
+    font-size: 11px;
+}
+QLabel#moduleState[active="true"] { color: #78DFB6; }
+QProgressBar#governorEvidence {
+    min-height: 20px;
+    max-height: 20px;
+    color: #E5F5EF;
+    background: #102A23;
+    border: 1px solid #2B594B;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 700;
+}
+QProgressBar#governorEvidence::chunk {
+    background: #48C894;
+    border-radius: 8px;
+}
 QLabel#warningBox {
     color: #754512;
     background: #FFF2DC;
@@ -558,6 +672,97 @@ class SettingCard(QFrame):
         control.setMaximumWidth(300)
         row.addWidget(control, 0, Qt.AlignmentFlag.AlignVCenter)
         self.layout.addLayout(row)
+
+
+class ClearCheckBox(QCheckBox):
+    """A checkbox whose tick remains explicit when a running scan locks it."""
+
+    def paintEvent(self, event: Any) -> None:  # noqa: N802
+        super().paintEvent(event)
+        if not self.isChecked():
+            return
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        indicator = self.style().subElementRect(
+            QStyle.SubElement.SE_CheckBoxIndicator,
+            option,
+            self,
+        )
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QColor("#FFFFFF"))
+        font = painter.font()
+        font.setBold(True)
+        font.setPixelSize(max(11, indicator.height() - 5))
+        painter.setFont(font)
+        painter.drawText(indicator, Qt.AlignmentFlag.AlignCenter, "✓")
+        painter.end()
+
+
+class DashboardMetric(QFrame):
+    def __init__(self, label: str, *, tone: str = "mint") -> None:
+        super().__init__()
+        self.setObjectName("metricTile")
+        self.value = 0
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(2)
+        self.value_label = QLabel("0")
+        self.value_label.setObjectName("metricValue")
+        self.value_label.setProperty("tone", tone)
+        self.label = QLabel(label)
+        self.label.setObjectName("metricLabel")
+        self.detail = QLabel("—")
+        self.detail.setObjectName("metricDetail")
+        self.detail.setWordWrap(True)
+        layout.addWidget(self.value_label)
+        layout.addWidget(self.label)
+        layout.addWidget(self.detail)
+
+    def set_metric(
+        self,
+        value: int,
+        detail: str,
+        *,
+        grouping: str = ",",
+    ) -> None:
+        self.value = max(0, int(value))
+        rendered = f"{self.value:,}"
+        if grouping != ",":
+            rendered = rendered.replace(",", grouping)
+        self.value_label.setText(rendered)
+        self.detail.setText(detail)
+
+
+class DashboardModule(QFrame):
+    def __init__(self, name: str) -> None:
+        super().__init__()
+        self.setObjectName("moduleTile")
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(11, 9, 11, 9)
+        layout.setSpacing(9)
+        self.icon = QLabel("—")
+        self.icon.setObjectName("moduleIcon")
+        self.icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        text = QVBoxLayout()
+        text.setSpacing(1)
+        self.name = QLabel(name)
+        self.name.setObjectName("moduleName")
+        self.state = QLabel("—")
+        self.state.setObjectName("moduleState")
+        text.addWidget(self.name)
+        text.addWidget(self.state)
+        layout.addWidget(self.icon)
+        layout.addLayout(text, 1)
+
+    def set_state(self, active: bool, state: str) -> None:
+        self.icon.setText("✓" if active else "—")
+        self.icon.setProperty("active", active)
+        self.state.setProperty("active", active)
+        self.state.setText(state)
+        for widget in (self.icon, self.state):
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
 
 
 class BackgroundTask(QThread):
@@ -849,6 +1054,7 @@ class SettingsWindow(QMainWindow):
         self._governor_operational_available = False
         self._governor_quarantine_ready = False
         self._governor_trash_ready = False
+        self._dashboard_scan_baseline = 0
         self._schedule_busy = False
         self._estimate_busy = False
         self._native_schedule_installed = False
@@ -1057,6 +1263,8 @@ class SettingsWindow(QMainWindow):
         cards.setContentsMargins(0, 0, 8, 0)
         cards.setSpacing(16)
 
+        cards.addWidget(self._build_operational_status_card())
+
         connection = SettingCard(
             self._("Account connection"),
             self._("Credentials stay in the operating system's protected credential store. The test lists at most one Inbox ID and never reads message bodies."),
@@ -1206,9 +1414,9 @@ class SettingsWindow(QMainWindow):
         self.duration_estimate_status.setObjectName("fieldHint")
         self.duration_estimate_status.setWordWrap(True)
         operation.layout.addWidget(self.duration_estimate_status)
-        # The scan is the product's main action, not another setting. Keep it as
-        # the first card in the scroll area on macOS, Windows, and Linux.
-        cards.insertWidget(0, operation)
+        # Keep the primary action immediately below the account dashboard on
+        # macOS, Windows, and Linux.
+        cards.insertWidget(1, operation)
 
         optional_modules = SettingCard(
             self._("Optional local analyses"),
@@ -1217,7 +1425,7 @@ class SettingsWindow(QMainWindow):
             ),
         )
         optional_modules.setObjectName("optionalModulesCard")
-        self.threat_protection_checkbox = QCheckBox(
+        self.threat_protection_checkbox = ClearCheckBox(
             self._("Phishing and scam protection")
         )
         self.threat_protection_checkbox.setAccessibleName(
@@ -1239,9 +1447,9 @@ class SettingsWindow(QMainWindow):
         self.threat_semantic_mode.setAccessibleName(
             self._("Threat protection depth")
         )
-        self.lumegraph_checkbox = QCheckBox(self._("LumeGraph analysis"))
+        self.lumegraph_checkbox = ClearCheckBox(self._("LumeGraph analysis"))
         self.lumegraph_checkbox.setAccessibleName(self._("LumeGraph analysis"))
-        self.obsolescence_proof_checkbox = QCheckBox(
+        self.obsolescence_proof_checkbox = ClearCheckBox(
             self._("Proof of Obsolescence checks")
         )
         self.obsolescence_proof_checkbox.setAccessibleName(
@@ -1267,7 +1475,7 @@ class SettingsWindow(QMainWindow):
         optional_modules_hint.setObjectName("fieldHint")
         optional_modules_hint.setWordWrap(True)
         optional_modules.layout.addWidget(optional_modules_hint)
-        cards.insertWidget(1, optional_modules)
+        cards.insertWidget(2, optional_modules)
 
         threat = SettingCard(
             self._("Local phishing and scam protection"),
@@ -1306,7 +1514,7 @@ class SettingsWindow(QMainWindow):
         self.threat_backtest_status.setWordWrap(True)
         threat.layout.addWidget(self.threat_backtest_status)
         # Keep protection visible near the primary action on all platforms.
-        cards.insertWidget(2, threat)
+        cards.insertWidget(3, threat)
 
         governor = SettingCard(
             self._("Personal Safety Governor"),
@@ -1319,7 +1527,7 @@ class SettingsWindow(QMainWindow):
         self.governor_status.setObjectName("connectionOff")
         self.governor_status.setWordWrap(True)
         governor.layout.addWidget(self.governor_status)
-        self.governor_enforced_checkbox = QCheckBox(
+        self.governor_enforced_checkbox = ClearCheckBox(
             self._("Use the operational Safety Governor")
         )
         self.governor_enforced_checkbox.setAccessibleName(
@@ -1531,6 +1739,368 @@ class SettingsWindow(QMainWindow):
         footer.addWidget(self.save_button)
         outer.addLayout(footer)
         return container
+
+    def _build_operational_status_card(self) -> QWidget:
+        card = QFrame()
+        card.setObjectName("operationalStatusCard")
+        self.operational_status_card = card
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(22, 20, 22, 20)
+        layout.setSpacing(14)
+
+        header = QHBoxLayout()
+        header.setSpacing(16)
+        heading = QVBoxLayout()
+        heading.setSpacing(2)
+        eyebrow = QLabel(self._("ACCOUNT-SCOPED · PRIVATE"))
+        eyebrow.setObjectName("operationalEyebrow")
+        title = QLabel(self._("Operational status"))
+        title.setObjectName("operationalTitle")
+        description = QLabel(self._(
+            "A live, local view of what InboxLume has analysed and protected for the selected account."
+        ))
+        description.setObjectName("operationalDescription")
+        description.setWordWrap(True)
+        heading.addWidget(eyebrow)
+        heading.addWidget(title)
+        heading.addWidget(description)
+        header.addLayout(heading, 1)
+        self.operational_account_badge = QLabel(self._("LOCAL LEDGER"))
+        self.operational_account_badge.setObjectName("operationalBadge")
+        self.operational_account_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header.addWidget(
+            self.operational_account_badge,
+            0,
+            Qt.AlignmentFlag.AlignTop,
+        )
+        layout.addLayout(header)
+
+        metrics = QGridLayout()
+        metrics.setHorizontalSpacing(10)
+        metrics.setVerticalSpacing(10)
+        self.scanned_metric = DashboardMetric(
+            self._("Email analysed"),
+            tone="mint",
+        )
+        self.quarantine_metric = DashboardMetric(
+            self._("Sent to Quarantine"),
+            tone="sky",
+        )
+        self.suspicious_metric = DashboardMetric(
+            self._("Suspicious protected"),
+            tone="amber",
+        )
+        self.proof_metric = DashboardMetric(
+            self._("Verified proofs"),
+            tone="mint",
+        )
+        for column, metric in enumerate(
+            (
+                self.scanned_metric,
+                self.quarantine_metric,
+                self.suspicious_metric,
+                self.proof_metric,
+            )
+        ):
+            metrics.addWidget(metric, 0, column)
+            metrics.setColumnStretch(column, 1)
+        layout.addLayout(metrics)
+
+        modules = QGridLayout()
+        modules.setHorizontalSpacing(10)
+        modules.setVerticalSpacing(10)
+        self.dashboard_threat_module = DashboardModule(
+            self._("Anti-phishing protection")
+        )
+        self.dashboard_governor_module = DashboardModule("Safety Governor")
+        self.dashboard_lumegraph_module = DashboardModule("LumeGraph")
+        self.dashboard_proof_module = DashboardModule(
+            "Proof of Obsolescence"
+        )
+        modules.addWidget(self.dashboard_threat_module, 0, 0)
+        modules.addWidget(self.dashboard_governor_module, 0, 1)
+        modules.addWidget(self.dashboard_lumegraph_module, 1, 0)
+        modules.addWidget(self.dashboard_proof_module, 1, 1)
+        modules.setColumnStretch(0, 1)
+        modules.setColumnStretch(1, 1)
+        layout.addLayout(modules)
+
+        self.governor_evidence_progress = QProgressBar()
+        self.governor_evidence_progress.setObjectName("governorEvidence")
+        self.governor_evidence_progress.setRange(
+            0,
+            DEFAULT_MINIMUM_CONCLUSIVE_REVIEWS,
+        )
+        self.governor_evidence_progress.setValue(0)
+        self.governor_evidence_progress.setFormat(self._(
+            "Safety evidence · 0/{minimum} conclusive reviews",
+            minimum=DEFAULT_MINIMUM_CONCLUSIVE_REVIEWS,
+        ))
+        layout.addWidget(self.governor_evidence_progress)
+        return card
+
+    def _operational_account_name(self) -> str:
+        if self.current_account_id is None:
+            return self._("LOCAL LEDGER")
+        account = self.settings.account(self.current_account_id)
+        provider = "Gmail" if account.provider is ProviderKind.GMAIL else "Yahoo"
+        return account.display_name or provider
+
+    def _operational_count(self, value: int) -> str:
+        rendered = f"{max(0, int(value)):,}"
+        return (
+            rendered.replace(",", ".")
+            if self.settings.language is UiLanguage.ITALIAN
+            else rendered
+        )
+
+    def _set_operational_status_empty(self, detail: str) -> None:
+        self.operational_account_badge.setProperty("running", False)
+        self.operational_account_badge.setText(
+            f"{self._operational_account_name()} · {self._('LOCAL')}"
+        )
+        self._repolish(self.operational_account_badge)
+        for metric in (
+            self.scanned_metric,
+            self.quarantine_metric,
+            self.suspicious_metric,
+            self.proof_metric,
+        ):
+            metric.set_metric(0, detail)
+        self.dashboard_threat_module.set_state(
+            self.threat_protection_checkbox.isChecked(),
+            self._("Enabled for the next scan")
+            if self.threat_protection_checkbox.isChecked()
+            else self._("Disabled"),
+        )
+        self.dashboard_governor_module.set_state(
+            self.governor_enforced_checkbox.isChecked(),
+            self._("Operational gate enabled")
+            if self.governor_enforced_checkbox.isChecked()
+            else self._("Shadow only"),
+        )
+        self.dashboard_lumegraph_module.set_state(
+            self.lumegraph_checkbox.isChecked(),
+            self._("Enabled for the next scan")
+            if self.lumegraph_checkbox.isChecked()
+            else self._("Disabled"),
+        )
+        self.dashboard_proof_module.set_state(
+            self.obsolescence_proof_checkbox.isChecked(),
+            self._("Enabled for the next scan")
+            if self.obsolescence_proof_checkbox.isChecked()
+            else self._("Disabled"),
+        )
+        self.governor_evidence_progress.setValue(0)
+        self.governor_evidence_progress.setFormat(self._(
+            "Safety evidence · 0/{minimum} conclusive reviews",
+            minimum=DEFAULT_MINIMUM_CONCLUSIVE_REVIEWS,
+        ))
+
+    def _refresh_operational_status(self) -> None:
+        if not hasattr(self, "operational_status_card"):
+            return
+        if (
+            self.current_account_id is None
+            or self.auth_service is None
+            or not self._connection_read_access
+        ):
+            self._set_operational_status_empty(
+                self._("Connect the account to read its private local ledger")
+            )
+            return
+        account = self.settings.account(self.current_account_id)
+        try:
+            summary = local_operational_status_summary(
+                self._state_db(account),
+                account.account_id,
+                self.auth_service.store,
+                scan_profile_for_model(self._selected_model_profile()),
+            )
+        except (OSError, RuntimeError, ValueError):
+            self._set_operational_status_empty(
+                self._("Local aggregates are not available yet")
+            )
+            return
+
+        ledger = summary.get("scan")
+        scan = ledger if isinstance(ledger, dict) else {}
+        quarantine_ledger = summary.get("quarantine")
+        quarantine = (
+            quarantine_ledger if isinstance(quarantine_ledger, dict) else {}
+        )
+        threat_ledger = summary.get("threat")
+        threat = threat_ledger if isinstance(threat_ledger, dict) else {}
+        graph_ledger = summary.get("lumegraph")
+        graph = graph_ledger if isinstance(graph_ledger, dict) else {}
+        proof_ledger = summary.get("proof")
+        proof = proof_ledger if isinstance(proof_ledger, dict) else {}
+        governor = summary.get("governor")
+
+        processed = int(scan.get("processed_total", 0))
+        quarantine_total = int(quarantine.get("applied", 0)) + int(
+            quarantine.get("already_applied", 0)
+        )
+        assessed = int(threat.get("assessed_total", 0))
+        suspicious = int(threat.get("protective_reviews_total", 0))
+        graph_nodes = int(graph.get("nodes_total", 0))
+        graph_transitions = int(graph.get("transitions_total", 0))
+        verified = int(proof.get("verified_total", 0))
+        statuses = proof.get("statuses")
+        proof_statuses = statuses if isinstance(statuses, dict) else {}
+        unresolved = int(proof_statuses.get("blocked_protected_utility", 0)) + int(
+            proof_statuses.get("insufficient_evidence", 0)
+        )
+
+        self.operational_account_badge.setProperty("running", False)
+        self.operational_account_badge.setText(
+            f"{self._operational_account_name()} · {self._('LOCAL')}"
+        )
+        self._repolish(self.operational_account_badge)
+        self.scanned_metric.set_metric(
+            processed,
+            self._("Recorded for this account and model"),
+            grouping="." if self.settings.language is UiLanguage.ITALIAN else ",",
+        )
+        self.quarantine_metric.set_metric(
+            quarantine_total,
+            self._("Reversible moves completed"),
+            grouping="." if self.settings.language is UiLanguage.ITALIAN else ",",
+        )
+        self.suspicious_metric.set_metric(
+            suspicious,
+            self._(
+                "{assessed} private assessments",
+                assessed=self._operational_count(assessed),
+            ),
+            grouping="." if self.settings.language is UiLanguage.ITALIAN else ",",
+        )
+        self.proof_metric.set_metric(
+            verified,
+            self._(
+                "{unresolved} protected or insufficient",
+                unresolved=self._operational_count(unresolved),
+            ),
+            grouping="." if self.settings.language is UiLanguage.ITALIAN else ",",
+        )
+
+        threat_enabled = self.threat_protection_checkbox.isChecked()
+        self.dashboard_threat_module.set_state(
+            threat_enabled,
+            self._(
+                "Active · {count} assessments",
+                count=self._operational_count(assessed),
+            )
+            if threat_enabled
+            else self._("Disabled for the next scan"),
+        )
+        graph_enabled = self.lumegraph_checkbox.isChecked()
+        self.dashboard_lumegraph_module.set_state(
+            graph_enabled,
+            self._(
+                "Active · {nodes} nodes · {transitions} transitions",
+                nodes=self._operational_count(graph_nodes),
+                transitions=self._operational_count(graph_transitions),
+            )
+            if graph_enabled
+            else self._("Disabled for the next scan"),
+        )
+        proof_enabled = self.obsolescence_proof_checkbox.isChecked()
+        self.dashboard_proof_module.set_state(
+            proof_enabled,
+            self._(
+                "Active · {count} verified",
+                count=self._operational_count(verified),
+            )
+            if proof_enabled
+            else self._("Disabled for the next scan"),
+        )
+
+        evidence_count = 0
+        if isinstance(governor, SafetyGovernorReport):
+            evidence_count = governor.overall.conclusive_reviews
+            governor_available = operational_governor_available(governor)
+        else:
+            governor_available = False
+        governor_enabled = self.governor_enforced_checkbox.isChecked()
+        if governor_enabled:
+            governor_state = self._("Operational gate active")
+        elif governor_available:
+            governor_state = self._("Ready · currently shadow only")
+        else:
+            governor_state = self._(
+                "Shadow · evidence {current}/{minimum}",
+                current=evidence_count,
+                minimum=DEFAULT_MINIMUM_CONCLUSIVE_REVIEWS,
+            )
+        self.dashboard_governor_module.set_state(
+            governor_enabled,
+            governor_state,
+        )
+        self.governor_evidence_progress.setValue(
+            min(evidence_count, DEFAULT_MINIMUM_CONCLUSIVE_REVIEWS)
+        )
+        self.governor_evidence_progress.setFormat(self._(
+            "Safety evidence · {current}/{minimum} conclusive reviews",
+            current=evidence_count,
+            minimum=DEFAULT_MINIMUM_CONCLUSIVE_REVIEWS,
+        ))
+
+    def _set_operational_running(self, running: bool) -> None:
+        if not hasattr(self, "operational_status_card"):
+            return
+        if running:
+            self._dashboard_scan_baseline = self.scanned_metric.value
+        self.operational_account_badge.setProperty("running", running)
+        self.operational_account_badge.setText(
+            f"{self._operational_account_name()} · "
+            f"{self._('SCANNING NOW') if running else self._('LOCAL')}"
+        )
+        self._repolish(self.operational_account_badge)
+        if not running:
+            self._refresh_operational_status()
+            return
+        self.dashboard_threat_module.set_state(
+            self.threat_protection_checkbox.isChecked(),
+            self._("✓ Active in this scan")
+            if self.threat_protection_checkbox.isChecked()
+            else self._("Not active in this scan"),
+        )
+        self.dashboard_governor_module.set_state(
+            self.governor_enforced_checkbox.isChecked(),
+            self._("✓ Active in this scan")
+            if self.governor_enforced_checkbox.isChecked()
+            else self._("Shadow only in this scan"),
+        )
+        self.dashboard_lumegraph_module.set_state(
+            self.lumegraph_checkbox.isChecked(),
+            self._("✓ Active in this scan")
+            if self.lumegraph_checkbox.isChecked()
+            else self._("Not active in this scan"),
+        )
+        self.dashboard_proof_module.set_state(
+            self.obsolescence_proof_checkbox.isChecked(),
+            self._("✓ Active in this scan")
+            if self.obsolescence_proof_checkbox.isChecked()
+            else self._("Not active in this scan"),
+        )
+        for metric in (
+            self.scanned_metric,
+            self.quarantine_metric,
+            self.suspicious_metric,
+            self.proof_metric,
+        ):
+            metric.detail.setText(self._("Updating live…"))
+
+    def _set_scan_selection_lock(self, locked: bool) -> None:
+        for checkbox in (
+            self.governor_enforced_checkbox,
+            self.threat_protection_checkbox,
+            self.lumegraph_checkbox,
+            self.obsolescence_proof_checkbox,
+        ):
+            checkbox.setProperty("scanLocked", locked)
+            self._repolish(checkbox)
 
     def _connect_signals(self) -> None:
         self.account_list.currentRowChanged.connect(self._account_changed)
@@ -1818,6 +2388,7 @@ class SettingsWindow(QMainWindow):
         self._refresh_schedule_frequency_visibility()
         self._refresh_schedule_status()
         self._reset_duration_estimate()
+        self._refresh_operational_status()
 
     def _collect_form(self, account_id: str) -> None:
         destination = (
@@ -1915,6 +2486,7 @@ class SettingsWindow(QMainWindow):
         self._refresh_threat_status()
         self._refresh_lumegraph_status()
         self._refresh_safety_governor()
+        self._refresh_operational_status()
         self._reset_duration_estimate()
         self._mark_dirty()
 
@@ -1922,6 +2494,7 @@ class SettingsWindow(QMainWindow):
         self._refresh_safety_governor()
         self._refresh_destination_capabilities()
         self._refresh_destination_notice()
+        self._refresh_operational_status()
         self._reset_duration_estimate()
         self._mark_dirty()
 
@@ -2523,6 +3096,7 @@ class SettingsWindow(QMainWindow):
                 button.setEnabled(False)
             self._repolish(self.connection_status)
             self._refresh_operation_availability()
+            self._refresh_operational_status()
             return
         try:
             status = self.auth_service.status(account.account_id, account.provider)
@@ -2535,6 +3109,7 @@ class SettingsWindow(QMainWindow):
             self.disconnect_button.setEnabled(False)
             self._repolish(self.connection_status)
             self._refresh_operation_availability()
+            self._refresh_operational_status()
             return
         object_name = {
             ConnectionState.READY: "connectionReady",
@@ -2555,6 +3130,7 @@ class SettingsWindow(QMainWindow):
         self._repolish(self.connection_status)
         self._refresh_operation_availability()
         self._refresh_safety_governor()
+        self._refresh_operational_status()
 
     @staticmethod
     def _repolish(widget: QWidget) -> None:
@@ -3526,6 +4102,8 @@ class SettingsWindow(QMainWindow):
         self._terminal_event_received = False
         self._set_operation_busy(True)
         if operation == "scan":
+            self._set_operational_running(True)
+        if operation == "scan":
             self._set_mailbox_outcome("Scan in progress", "active")
         else:
             self._set_mailbox_outcome("No email changed", "safe")
@@ -3572,6 +4150,9 @@ class SettingsWindow(QMainWindow):
             self.italian_language_button,
         ):
             control.setEnabled(not busy)
+        self._set_scan_selection_lock(
+            busy and self._operation == "scan"
+        )
         if not busy:
             self._refresh_destination_capabilities()
             self._refresh_destination_notice()
@@ -3609,6 +4190,19 @@ class SettingsWindow(QMainWindow):
         elif event_type == "progress":
             processed = int(event.get("processed", 0))
             limit = int(event.get("limit", 1))
+            if self._operation == "scan":
+                self.scanned_metric.set_metric(
+                    self._dashboard_scan_baseline + processed,
+                    self._(
+                        "{processed} analysed in the current scan",
+                        processed=processed,
+                    ),
+                    grouping=(
+                        "."
+                        if self.settings.language is UiLanguage.ITALIAN
+                        else ","
+                    ),
+                )
             if limit == 0:
                 self.operation_progress.setRange(0, 0)
                 self.operation_progress.setFormat(self._(
@@ -3820,6 +4414,7 @@ class SettingsWindow(QMainWindow):
             self.status_text.setText(self._(
                 "Scan finished. No body or subject was stored in plaintext."
             ))
+            self._refresh_operational_status()
             elapsed = event.get("elapsed_seconds")
             if (
                 newly > 0
@@ -4073,6 +4668,7 @@ class SettingsWindow(QMainWindow):
         self._refresh_calibration_status()
         self._refresh_threat_status()
         self._refresh_safety_governor()
+        self._refresh_operational_status()
 
     def _mark_dirty(self, *_: Any) -> None:
         self.dirty = True
@@ -4087,6 +4683,7 @@ class SettingsWindow(QMainWindow):
         )
         self._refresh_threat_status()
         self._refresh_lumegraph_status()
+        self._refresh_operational_status()
         self._reset_duration_estimate()
         self._mark_dirty()
 

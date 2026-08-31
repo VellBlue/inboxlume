@@ -5,9 +5,9 @@
 > not generated as a word-for-word translation.
 
 > [!IMPORTANT]
-> InboxLume is under active development. There is no supported public release
-> yet. CI, packaging, and the static site are prepared locally, while a
-> fail-closed release gate prevents accidental publication.
+> InboxLume is a public development project. There is no supported packaged
+> release yet; the fail-closed release gate continues to prevent accidental
+> binary or package publication.
 
 InboxLume is a free, local-first email maintenance agent for Gmail and Yahoo.
 It uses a local language model to understand the content of each Inbox message,
@@ -153,7 +153,9 @@ while conflicts force review.
 
 ## Documentation
 
+- [Project site](https://VellBlue.github.io/inboxlume/) · [Italian site](https://VellBlue.github.io/inboxlume/it/)
 - [Technical article](docs/ARTICLE.md) · [Italian article](docs/it/ARTICLE.md)
+- [Engineering log](docs/engineering-log.html) · [Italian engineering log](docs/it/engineering-log.html)
 - [Installation and compatibility](docs/INSTALLATION.md)
 - [Local model profiles](docs/LOCAL_MODELS.md)
 - [Native scheduling](docs/SCHEDULING.md)
@@ -176,9 +178,10 @@ gate is deliberately opened.
 
 ## Open-source status
 
-InboxLume is intended to be published free of charge as an open-source GitHub
-project. A licence has not been selected yet, so this development snapshot must
-not be described as a licensed open-source release. Choosing and adding the
-licence is a mandatory release-gate item.
+InboxLume source code and project documentation are licensed under the
+[Apache License 2.0](LICENSE). Model weights, third-party dependencies, and user
+data retain their own terms. The public repository is a development snapshot,
+not a supported binary release; packaging, signing, and release gates remain
+separate.
 
-Contributions will be welcome after publication; see [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).

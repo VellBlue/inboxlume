@@ -40,6 +40,8 @@ FORBIDDEN_PREFIXES = (
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 ALLOWED_LITERAL_EMAILS = {"nome@yahoo.com"}
 ALLOWED_EMAIL_DOMAINS = {"example.com", "example.invalid", "example.test"}
+ALLOWED_HISTORY_EMAILS = {"noreply" + "@" + "anthropic.com"}
+ALLOWED_HISTORY_EMAIL_DOMAINS = {"users.noreply.github.com"}
 PRIVATE_PATHS = (
     re.compile(re.escape("/" + "Users/") + r"(?!example(?:/|$))"),
     re.compile(re.escape("C:" + "/" + "Users/") + r"(?!example(?:/|$))", re.I),
@@ -142,11 +144,34 @@ def audit_file(path: Path) -> list[str]:
     return findings
 
 
+def history_email_is_public(address: str) -> bool:
+    normalized = address.casefold()
+    domain = normalized.rsplit("@", 1)[-1]
+    return normalized in ALLOWED_HISTORY_EMAILS or domain in ALLOWED_HISTORY_EMAIL_DOMAINS
+
+
+def audit_git_history() -> list[str]:
+    result = subprocess.run(
+        ["git", "log", "--all", "--format=%ae%n%ce%n%B"],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return ["cronologia_git_non_leggibile"]
+    if any(not history_email_is_public(address) for address in EMAIL.findall(result.stdout)):
+        return ["indirizzo_email_personale_nella_cronologia_git"]
+    return []
+
+
 def main() -> int:
     findings: list[tuple[Path, str]] = []
     for path in candidate_files():
         for rule in audit_file(path):
             findings.append((path.relative_to(ROOT), rule))
+    findings.extend((Path(".git"), rule) for rule in audit_git_history())
     if findings:
         print("Audit privacy repository FALLITO. Nessun contenuto viene mostrato.")
         for path, rule in findings:

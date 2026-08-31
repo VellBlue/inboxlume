@@ -1,20 +1,24 @@
 # Checklist di pubblicazione
 
-Stato corrente: **pubblicazione bloccata intenzionalmente**.
+Stato corrente: **repository e Pages autorizzati come anteprima pubblica di
+sviluppo; release dell'app bloccata intenzionalmente**.
 
-Il file `release/release-gate.json` contiene tutti i gate impostati su `false` e la
-versione è di sviluppo. Non esistono workflow di release, upload o deploy Pages.
+Il file `release/release-gate.json` registra l'autorizzazione alla pubblicazione,
+la licenza Apache-2.0, la superficie bilingue e gli asset sanificati. Perimetro
+finale, pacchetti multipiattaforma, revisione di sicurezza e versione stabile
+restano bloccanti. Non esistono workflow di release o upload di artefatti; Pages
+usa direttamente `main/docs`.
 
 ## Prima di aprire il repository
 
 - [ ] completare il perimetro funzionale deciso per la prima release;
-- [ ] scegliere nome utente/organizzazione e namespace definitivi;
-- [ ] scegliere consapevolmente la licenza del codice;
+- [x] scegliere nome utente/organizzazione e namespace definitivi;
+- [x] scegliere consapevolmente la licenza del codice;
 - [ ] sostituire tutti i segnaposto `REPLACE_` nei template di packaging;
 - [ ] verificare nome, marchi e domini con una ricerca finale;
-- [ ] approvare screenshot e benchmark esclusivamente sanificati;
-- [ ] eseguire audit privacy su tutti i candidati al commit;
-- [ ] riesaminare README, changelog, limiti e funzioni future;
+- [x] approvare screenshot e benchmark esclusivamente sanificati;
+- [x] eseguire audit privacy su tutti i candidati al commit e sulla cronologia Git;
+- [x] riesaminare README, changelog, limiti e funzioni future;
 - [ ] attivare GitHub Security Advisories prima di accettare segnalazioni.
 
 ## Qualità multipiattaforma
@@ -41,15 +45,15 @@ versione è di sviluppo. Non esistono workflow di release, upload o deploy Pages
 
 ## Sito e dichiarazioni
 
-- [ ] inglese primario e italiano naturale completi per GUI e superfici pubbliche;
-- [ ] prova con email sintetiche inglesi, italiane e miste nello stesso lotto;
-- [ ] distinguere chiaramente funzioni disponibili, sperimentali e future;
-- [ ] non promettere sicurezza al 100% o unicità mondiale non dimostrabile;
-- [ ] spiegare differenze tra locale, provider email e servizi AI cloud;
-- [ ] dichiarare campione, hardware, prompt, policy e limiti dei benchmark;
-- [ ] nessun analytics, font remoto, cookie o risorsa di terze parti nel sito;
-- [ ] controllo accessibilità, responsive layout e link locali;
-- [ ] configurare Pages soltanto dopo autorizzazione esplicita.
+- [x] inglese primario e italiano naturale completi per GUI e superfici pubbliche;
+- [x] prova con email sintetiche inglesi, italiane e miste nello stesso lotto;
+- [x] distinguere chiaramente funzioni disponibili, sperimentali e future;
+- [x] non promettere sicurezza al 100% o unicità mondiale non dimostrabile;
+- [x] spiegare differenze tra locale, provider email e servizi AI cloud;
+- [x] dichiarare campione, hardware, prompt, policy e limiti dei benchmark;
+- [x] nessun analytics, font remoto, cookie o risorsa di terze parti nel sito;
+- [x] controllo accessibilità, responsive layout e link locali;
+- [x] configurare Pages soltanto dopo autorizzazione esplicita.
 
 ## Apertura del gate
 
@@ -61,5 +65,6 @@ python scripts/audit_repository_privacy.py
 python -m unittest discover -s tests -t .
 ```
 
-L'apertura del gate non pubblica nulla da sola: autorizza soltanto l'eventuale
-aggiunta futura di un workflow di release, che dovrà essere revisionato separatamente.
+La pubblicazione del repository e del sito non apre questo gate. L'apertura
+autorizzerà soltanto l'eventuale aggiunta futura di un workflow di release, che
+dovrà essere revisionato separatamente.

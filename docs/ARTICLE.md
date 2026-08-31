@@ -1,8 +1,11 @@
 # InboxLume: maintaining a large inbox without handing it to another AI
 
-> Editorial draft for GitHub Pages. Development status: prepared locally. It
-> must be updated against the final feature set and public benchmarks before
-> publication. [Leggi la versione italiana](it/ARTICLE.md).
+> Public development article. It describes the current source snapshot, not a
+> supported packaged release, and must continue to be updated against measured
+> features and benchmarks. [Leggi la versione italiana](it/ARTICLE.md).
+
+> For measured results from real development runs, see the
+> [engineering log](engineering-log.html).
 
 An email account is more than a list of messages. It is a partial record of
 purchases, relationships, access credentials, school, health, work, and changing
@@ -79,6 +82,26 @@ This cannot make every bug or compromised operating system impossible. It makes
 the authority smaller, testable, and easier to reason about than that of a general
 email agent.
 
+## Threat protection cannot authorise cleanup
+
+Phishing and scam protection is a separate protective path, not another cleanup
+classifier. A deterministic layer checks controlled evidence about identity,
+authentication, links, Unicode anomalies, and suspicious requests. A second local
+model pass is optional and targeted: in the recommended mode it runs only after
+the technical layer has already raised an alert.
+
+The combination is deliberately additive. A malicious semantic judgement may
+strengthen independent technical evidence, but a benign model answer cannot erase
+it. A high-risk result can force Review and add a visible provider-native marker —
+the `InboxLume/Sospetto phishing` Gmail label or Yahoo's additive `\Flagged` flag —
+while preserving Inbox and existing labels or flags. It can never authorise
+Quarantine, Trash, or permanent deletion.
+
+This boundary has been exercised against the packaged bilingual synthetic corpus.
+The first real-model run also exposed a prompt/parser contract mismatch that an
+aggregate precision score did not reveal; the measured failure and correction are
+documented in the [engineering log](engineering-log.html#model).
+
 ## What “local” means here
 
 The term *local AI* is often used without defining its boundary. In InboxLume it
@@ -96,6 +119,26 @@ It does not mean that Gmail or Yahoo ceases to host the email. Nor does local
 execution automatically guarantee safety: runtime behaviour, loopback endpoints,
 cache paths, and network capabilities must still be tested. A planned Verifiable
 Locality layer will make those effective capabilities visible for each run.
+
+## Operational evidence without reopening messages
+
+The desktop interface now includes an account-scoped operational dashboard. It
+reads the same private aggregate ledgers used by the safety components and shows,
+for the selected account and model, completed analyses, actual reversible
+Quarantine moves, suspicious messages protected, verified Proof of Obsolescence
+witnesses, LumeGraph activity, and progress towards the Safety Governor evidence
+threshold.
+
+During a scan the dashboard identifies the live run and states explicitly whether
+Threat Protection, the operational Governor, LumeGraph, and Proof of Obsolescence
+are active. Locked selections retain a visible check mark, so disabled controls do
+not become ambiguous grey squares. Refreshing these counts does not reopen a
+message or expose provider identifiers or plaintext.
+
+The panel intentionally does not invent statistical charts from cumulative
+totals. A trend chart becomes meaningful only when comparable per-run or temporal
+series are recorded; until then, precise counters and a real Governor threshold
+communicate more than decorative curves.
 
 ## Learning without building another personal archive
 
@@ -148,8 +191,10 @@ preference remains independent under its existing safeguards. Governor authority
 over Direct Trash is a distinct, stricter capability: it requires a supported
 model plus at least 299 conclusive, error-free reviews in both the overall and
 family envelopes. Permanent deletion and emptying Trash remain outside its
-authority. Drift handling and a
-Counterfactual Safety Lab remain research milestones; borderline decisions that
+authority. Temporal preference drift is already implemented as a protective-only
+input: qualified recent Keep, restore, star, or importance evidence may restrict
+the affected family, while declining interest can never unlock more cleanup. A
+Counterfactual Safety Lab remains a research milestone; borderline decisions that
 flip under small changes stay in review.
 
 Methodological starting points include work on conformal risk control and
@@ -219,9 +264,10 @@ Proof-Carrying Cleanup would later bind that decision to one opaque ID, one
 destination, and an expiry.
 
 Other recorded directions include detecting expected-but-missing communication, a
-personal phishing baseline, and LumeReply: an on-demand reply adviser that covers
-questions and commitments without reading Sent mail or sending anything. None of
-these should be presented as an available feature until implemented and tested.
+personal sender baseline beyond the current technical and semantic threat
+protection, and LumeReply: an on-demand reply adviser that covers questions and
+commitments without reading Sent mail or sending anything. None of these should be
+presented as an available feature until implemented and tested.
 
 For privacy constraints in structured extraction over email, a relevant reference
 is this Google Research system description:
@@ -229,16 +275,19 @@ is this Google Research system description:
 
 ## Project and release status
 
-InboxLume is intended to be a free open-source GitHub project, not a commercial
-service. At present it is still a development repository: a licence has not yet
-been selected, so it must not be described as a licensed open-source release.
+InboxLume is a free open-source GitHub project, not a commercial service. Source
+code and project documentation are licensed under Apache-2.0; model weights,
+third-party dependencies, and user data retain their own terms. The public
+repository remains a development snapshot, not a supported packaged release.
 
 The Gmail/Yahoo foundation, multiple accounts, quiz, one-shot scans, controlled
-model profiles, and native scheduling are working development components. CI,
-packaging, and the static site are prepared, but the release gate remains closed.
-The remaining gate includes the agreed feature scope, licence selection, clean
-machine packaging tests, signing decisions, permission review, reproducible
-benchmarks, and approval of sanitised assets.
+model profiles, native scheduling, local threat protection, LumeGraph, Proof of
+Obsolescence, temporal drift, Safety Governor evidence, and the account-scoped
+operational dashboard are working development components. CI, packaging, and the
+static site are public, but the separate release gate remains closed. The
+remaining gate includes the agreed feature scope, clean-machine packaging tests,
+signing decisions, permission review, reproducible benchmarks, and approval of
+release assets.
 
 InboxLume will not promise 100% safety, call uncalibrated model confidence a
 probability, or claim a world-first without a defensible prior-art review. The
