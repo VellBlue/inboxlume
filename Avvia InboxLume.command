@@ -33,12 +33,18 @@ fi
 
 if [[ "$environment_ready" != true ]]; then
     echo "L'ambiente desktop locale è assente, obsoleto o non supportato."
+    echo "Il dettaglio è nelle righe che iniziano con \"-\" qui sopra."
     echo "InboxLume richiede Python 3.11, 3.12 o 3.13 (non Python 3.14)."
     echo "Esegui una volta:"
     echo "  cd \"$project_dir\""
     echo "  python3.13 -m venv .venv"
     echo "  source .venv/bin/activate"
     echo "  python -m pip install -e '.[desktop]'"
+    echo
+    echo "Se manca l'archivio certificati TLS, nessun provider è verificabile"
+    echo "finché non installi le CA radice per quel Python. Con una"
+    echo "installazione da python.org esegui una volta:"
+    echo "  \"/Applications/Python 3.13/Install Certificates.command\""
     read -k 1 "?Premi un tasto per chiudere…"
     echo
     exit 1

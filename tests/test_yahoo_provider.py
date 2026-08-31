@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from inboxlume.models import ProviderKind
 from inboxlume.providers.yahoo import (
+    _ACCESS_TERMS,
     DirectYahooImapReadTransport,
     YahooImapCredentials,
     YahooReadOnlyMailbox,
@@ -189,6 +190,57 @@ class YahooProviderTests(unittest.TestCase):
             )
         )
         self.assertFalse(any(call[0] in {"store", "expunge"} for call in client.calls))
+
+    def test_multi_word_subject_terms_reach_the_server_as_one_argument(self) -> None:
+        client = FakeReadClient()
+        transport = DirectYahooImapReadTransport(self.credentials, client)  # type: ignore[arg-type]
+        transport.search("SEEN", "BEFORE", "30-Aug-2026", "SUBJECT", "new login")
+        transport.close()
+
+        search = next(
+            call for call in client.calls if call[:2] == ("uid", "SEARCH")
+        )
+        # imaplib joins criteria with spaces, so an unquoted term would reach
+        # the server as "SUBJECT new login" and be rejected with BAD.
+        self.assertEqual(search[-1], '"new login"')
+        self.assertEqual(search[-2], "SUBJECT")
+        self.assertEqual(search[-3], "30-Aug-2026")
+
+    def test_every_access_alert_term_is_sent_quoted(self) -> None:
+        for term in _ACCESS_TERMS:
+            if not term.isascii():
+                continue
+            with self.subTest(term=term):
+                client = FakeReadClient()
+                transport = DirectYahooImapReadTransport(self.credentials, client)  # type: ignore[arg-type]
+                transport.search("SEEN", "SUBJECT", term)
+                transport.close()
+                search = next(
+                    call for call in client.calls if call[:2] == ("uid", "SEARCH")
+                )
+                self.assertEqual(search[-1], f'"{term}"')
+
+    def test_quoting_escapes_characters_that_would_end_the_string(self) -> None:
+        client = FakeReadClient()
+        transport = DirectYahooImapReadTransport(self.credentials, client)  # type: ignore[arg-type]
+        transport.search("SEEN", "SUBJECT", 'con "virgolette" e \\ backslash')
+        transport.close()
+
+        search = next(
+            call for call in client.calls if call[:2] == ("uid", "SEARCH")
+        )
+        self.assertEqual(search[-1], '"con \\"virgolette\\" e \\\\ backslash"')
+
+    def test_keywords_and_dates_are_never_quoted(self) -> None:
+        client = FakeReadClient()
+        transport = DirectYahooImapReadTransport(self.credentials, client)  # type: ignore[arg-type]
+        transport.search("SEEN", "BEFORE", "30-Aug-2026")
+        transport.close()
+
+        search = next(
+            call for call in client.calls if call[:2] == ("uid", "SEARCH")
+        )
+        self.assertEqual(search[2:], (None, "SEEN", "BEFORE", "30-Aug-2026"))
 
     def test_restore_reconciliation_reads_only_message_id_header(self) -> None:
         client = FakeReadClient()

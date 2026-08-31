@@ -46,6 +46,19 @@ _ACCESS_TERMS = (
     "you logged in",
     "used to sign in",
 )
+def _quoted_search_string(value: str) -> str:
+    """Send a SEARCH argument as one IMAP quoted string.
+
+    imaplib joins criteria with spaces, so an unquoted multi-word subject term
+    reaches the server as several arguments and the whole SEARCH is rejected
+    with BAD.  Every access-alert term is multi-word, so that failure aborted
+    the batch on a real Yahoo server.
+    """
+
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 # Stable local folder used for reversible Yahoo quarantine. It is separate from
 # Trash; InboxLume never expunges or empties either folder.
 YAHOO_QUARANTINE_FOLDER = "InboxLume-Quarantena"
@@ -354,7 +367,13 @@ class DirectYahooImapReadTransport:
             if index == 0 or criteria[index - 1] not in {"BEFORE", "SUBJECT"}:
                 if item not in allowed:
                     raise YahooImapError("criterio ricerca Yahoo non consentito")
-        status, data = self._uid("SEARCH", None, *criteria)
+        prepared = tuple(
+            _quoted_search_string(item)
+            if index > 0 and criteria[index - 1] == "SUBJECT"
+            else item
+            for index, item in enumerate(criteria)
+        )
+        status, data = self._uid("SEARCH", None, *prepared)
         if status != "OK" or not data or not isinstance(data[0], bytes):
             raise YahooTransportError("ricerca Inbox Yahoo fallita")
         uids = data[0].decode("ascii", "strict").split()

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import importlib.util
+import ssl
 import sys
 import tomllib
 from pathlib import Path
@@ -19,12 +20,33 @@ def python_version_supported(version: tuple[int, int]) -> bool:
     return MINIMUM_PYTHON <= version < MAXIMUM_PYTHON_EXCLUSIVE
 
 
+def certificate_store_available() -> bool:
+    """Report whether this interpreter can verify a normal TLS certificate.
+
+    A framework Python installed without its certificate step has an empty CA
+    store.  Every provider connection then fails verification, and the provider
+    reports it as an unreachable account, which sends the user looking for a
+    mailbox problem that does not exist.
+    """
+
+    try:
+        context = ssl.create_default_context()
+    except (OSError, ssl.SSLError):
+        return False
+    return context.cert_store_stats().get("x509_ca", 0) > 0
+
+
 def environment_errors(project_root: Path) -> tuple[str, ...]:
     errors: list[str] = []
     version = sys.version_info[:2]
     if not python_version_supported(version):
         errors.append(
             "Python non supportato: serve una versione da 3.11 a 3.13"
+        )
+
+    if not certificate_store_available():
+        errors.append(
+            "archivio certificati TLS assente: nessun provider e verificabile"
         )
 
     source_root = project_root / "src"
