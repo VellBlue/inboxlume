@@ -209,6 +209,16 @@ class RosettaTranslationTests(unittest.TestCase):
         ):
             self.assertFalse(_process_is_translated("Darwin"))
 
+    def test_the_macos_bundle_refuses_translation_up_front(self) -> None:
+        plist = (self.ROOT / "macos/InboxLume-Info.plist").read_text(encoding="utf-8")
+
+        # The launcher guard repairs a translated start; this prevents it, and
+        # covers opening the app from the Dock or the Finder.
+        self.assertIn("LSRequiresNativeExecution", plist)
+        self.assertIn("LSArchitecturePriority", plist)
+        priority = plist.index("LSArchitecturePriority")
+        self.assertLess(plist.index("arm64", priority), plist.index("x86_64", priority))
+
     def test_both_launchers_restart_natively_before_doing_anything(self) -> None:
         for name in ("macos/InboxLumeLauncher.sh", "Avvia InboxLume.command"):
             with self.subTest(launcher=name):

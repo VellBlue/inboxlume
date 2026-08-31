@@ -22,6 +22,16 @@
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <!-- The local model runtime exists only for Apple Silicon. Launched under
+         Rosetta the app would report every model unavailable on a Mac that
+         supports them, so refuse translation instead of repairing it later. -->
+    <key>LSRequiresNativeExecution</key>
+    <true/>
+    <key>LSArchitecturePriority</key>
+    <array>
+        <string>arm64</string>
+        <string>x86_64</string>
+    </array>
     <key>InboxLumeProjectRoot</key>
     <string>__INBOXLUME_PROJECT_ROOT__</string>
 </dict>
