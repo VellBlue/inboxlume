@@ -164,6 +164,31 @@ class PublicationPreparationTests(unittest.TestCase):
                 _document(article),
             )
 
+    def test_italian_publication_avoids_known_ambiguous_phrases(self) -> None:
+        sources = (
+            ROOT / "docs/it/index.html",
+            ROOT / "docs/it/ARTICLE.md",
+            ROOT / "docs/it/ENGINEERING_LOG.md",
+            ROOT / "docs/it/engineering-log.html",
+            ROOT / "docs/it/LUMEGRAPH.md",
+            ROOT / "docs/it/PROOF_OF_OBSOLESCENCE.md",
+            ROOT / "docs/it/THREAT_DETECTION.md",
+        )
+        content = "\n".join(path.read_text(encoding="utf-8") for path in sources)
+        for phrase in (
+            "account compartimentati",
+            "evidenza di sicurezza esplicita",
+            "identificativi opachi",
+            "Nessuna licenza scelta",
+            "Proof of Obsolescence",
+            "sanificata",
+            "segnali, non verdetti",
+            "versione installabile ufficialmente supportata",
+        ):
+            self.assertNotIn(phrase, content)
+        self.assertIn("LumeGraph", content)
+        self.assertIn("Proof Of Obsolescence", content)
+
     def test_ci_contains_no_publication_or_artifact_upload_step(self) -> None:
         workflows = list((ROOT / ".github/workflows").glob("*.yml"))
         self.assertEqual({path.name for path in workflows}, {"ci.yml", "package-smoke.yml"})

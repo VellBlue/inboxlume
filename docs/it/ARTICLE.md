@@ -1,25 +1,25 @@
-# InboxLume: ripulire una casella molto grande senza consegnarla a un'altra IA
+# InboxLume: ripulire una casella molto grande con un modello di IA locale
 
 > [Leggi l'articolo in inglese](../article.html) · Versione italiana curata
 
 > Articolo pubblico di sviluppo. Descrive lo stato attuale del codice sorgente,
-> non una versione installabile ufficialmente supportata. Sarà aggiornato insieme
-> alle funzioni reali e ai risultati misurati.
+> non una versione installabile pronta e supportata per l'uso pubblico. Verrà
+> aggiornato quando cambieranno le funzioni disponibili o saranno pubblicati nuovi
+> risultati misurati.
 
 > Per i risultati misurati durante esecuzioni reali di sviluppo, consulta il
 > [diario di ingegneria](engineering-log.html).
 
-Una casella personale non è soltanto un elenco di messaggi. È una cronologia di
-acquisti, relazioni, accessi, scuola, salute, lavoro e periodi della vita. Proprio
-per questo, quando decine di migliaia di email rendono insufficienti le regole
-tradizionali, la soluzione più comoda — inviare il contenuto a un servizio di IA — è
-anche quella che introduce la domanda più difficile: quanta memoria privata siamo
-disposti a consegnare per riordinare la nostra memoria privata?
+Una casella personale non è soltanto un elenco di messaggi. Contiene una cronologia
+di acquisti, relazioni, accessi, scuola, salute, lavoro e periodi della vita. Quando
+decine di migliaia di email rendono insufficienti le regole tradizionali, inviare il
+contenuto a un servizio di IA esterno può sembrare la soluzione più comoda. Significa
+però affidare a un altro servizio una parte molto ampia della propria vita privata.
 
-InboxLume nasce da un vincolo semplice: **l'IA deve capire la posta senza farla
-uscire dal dispositivo**. Il fornitore di posta elettronica continua
-inevitabilmente a ospitare e consegnare i messaggi, ma inferenza, apprendimento e
-stato personale restano locali. Non è un programma di posta universale, non è un
+InboxLume nasce da un vincolo semplice: **l'IA deve analizzare la posta senza
+inviarne il contenuto a un servizio di IA esterno**. Il fornitore di posta elettronica
+continua inevitabilmente a ospitare e consegnare i messaggi, ma l'analisi del modello,
+l'apprendimento e i dati di personalizzazione restano locali. Non è un programma di posta universale, non è un
 assistente con accesso al computer e non agisce in autonomia senza limiti. È uno
 strumento circoscritto alla Posta in arrivo, con poche azioni verificabili.
 
@@ -33,28 +33,29 @@ qualcosa di importante che è sfuggito.
 
 InboxLume combina quindi tre livelli:
 
-1. un modello locale valuta categoria e utilità del contenuto specifico;
-2. la memoria privata confronta quel caso con correzioni e segnali locali;
-3. un insieme di regole deterministiche decide se proteggere, chiedere una
+1. un modello locale valuta la categoria e l'utilità di ogni messaggio;
+2. il sistema confronta il messaggio con le correzioni precedenti dello stesso account,
+   conservate localmente in forma ridotta;
+3. regole di sicurezza esplicite decidono se proteggere il messaggio, chiedere una
    revisione o proporre una quarantena reversibile.
 
 Il modello non prende direttamente il controllo. La distinzione è essenziale: un
 modello linguistico è utile per comprendere sfumature linguistiche, ma il suo
-punteggio di affidabilità non è una garanzia e il testo di una email può contenere
-istruzioni ostili.
+punteggio di affidabilità non è una garanzia. Inoltre, un'email può contenere testo
+creato appositamente per indurre il modello a ignorare le regole.
 
-Italiano e inglese vengono valutati insieme, nello stesso gruppo. Una casella non
-deve essere configurata come “italiana” o “inglese”: anche un singolo messaggio può
-mescolare le due lingue. La lingua scelta per l’interfaccia cambia soltanto il modo
-in cui InboxLume parla con l’utente, mai i contenuti che il classificatore accetta.
+Il sistema analizza sia l'italiano sia l'inglese. Non occorre configurare una casella
+come “italiana” o “inglese”, perché anche un singolo messaggio può mescolare le due
+lingue. La lingua scelta per l'interfaccia cambia soltanto i testi mostrati all'utente,
+non le lingue che InboxLume può analizzare.
 
-## Un'architettura a capacità separate
+## Componenti separati con permessi diversi
 
 ```text
 fornitore Gmail/Yahoo
         |
         v
-lettore della Posta in arrivo ----> testo sanificato in RAM
+lettore della Posta in arrivo ----> testo preparato in RAM
                                       |
                                       v
                               modello di IA locale
@@ -62,41 +63,44 @@ lettore della Posta in arrivo ----> testo sanificato in RAM
                                       v
                          motore decisionale
                                       |
-                               ID opachi approvati
+                               ID tecnici approvati
                                       |
                                       v
                             esecutore ristretto
                          Quarantena oppure Cestino
 ```
 
-Il lettore possiede le credenziali necessarie per ricevere la Posta in arrivo. Il
-processo del modello riceve il contenuto, ma nessuna credenziale e nessuna funzione
-per agire sulla posta. Il motore decisionale applica categorie protette, soglie e
-correzioni. L'esecutore riceve soltanto identificativi opachi e una destinazione
-scelta fra quelle previste.
+Il componente di lettura possiede le credenziali necessarie per ricevere la Posta in
+arrivo. Il processo del modello riceve il contenuto, ma nessuna credenziale e nessuna
+funzione per modificare la posta. Il motore decisionale applica categorie protette,
+soglie e correzioni. Il componente che esegue le azioni riceve soltanto identificativi
+tecnici che non contengono il testo dei messaggi e una destinazione scelta fra quelle
+previste.
 
 Le operazioni più pericolose non sono nascoste dietro un pulsante: **non esistono nel
 codice operativo**. InboxLume non implementa invio, SMTP, bozze, accesso alla Posta
 inviata, eliminazione permanente, `EXPUNGE`, svuotamento del Cestino o modifiche
-massive alle regole. Su Yahoo non usa il ripiego `STORE \\Deleted`; su Gmail le
+in blocco alle regole. Su Yahoo non usa il comando alternativo `STORE \\Deleted`, che
+contrassegnerebbe il messaggio come eliminato; su Gmail le
 operazioni disponibili sono separate e limitate da un elenco esplicito.
 
 Questo non rende impossibile ogni errore software o compromissione del sistema
-operativo. Rende però il perimetro più piccolo, verificabile e trasparente rispetto
-a un agente generico.
+operativo. Rispetto a un assistente con accesso generale al computer, limita i
+permessi a un insieme più piccolo, verificabile e trasparente.
 
 ## La protezione dalle minacce non può autorizzare la pulizia
 
-La protezione da phishing e truffe segue un percorso separato, non è un altro
-classificatore per la pulizia. Un livello deterministico controlla segnali
-specifici su identità, autenticazione, collegamenti, anomalie Unicode e richieste
-sospette. Un secondo passaggio del modello locale è facoltativo e mirato: nella
-modalità consigliata parte soltanto quando il livello tecnico ha già rilevato un
+La protezione da phishing e truffe segue un percorso separato: non serve a decidere
+quali email ripulire. Un insieme di regole fisse controlla elementi tecnici
+specifici relativi a identità, autenticazione, collegamenti, anomalie Unicode e
+richieste sospette. Un secondo passaggio del modello locale è facoltativo e mirato: nella
+modalità consigliata parte soltanto quando le regole tecniche hanno già rilevato un
 allarme.
 
-La combinazione è volutamente additiva. Un giudizio semantico che indica una
-minaccia può rafforzare prove tecniche indipendenti, ma una risposta rassicurante
-del modello non può cancellarle. Un risultato ad alto rischio può imporre Revisione
+Il modello può aumentare il livello di rischio, ma non può ridurre quello prodotto
+dai controlli tecnici. Un'analisi del significato che indica una minaccia può quindi
+rafforzare prove tecniche indipendenti, mentre una risposta rassicurante del modello
+non può cancellarle. Un risultato ad alto rischio può imporre Revisione
 e aggiungere un indicatore visibile — l'etichetta Gmail
 `InboxLume/Sospetto phishing` oppure il contrassegno aggiuntivo Yahoo `\Flagged` —
 preservando Posta in arrivo, etichette e contrassegni esistenti.
@@ -104,8 +108,8 @@ Non può mai autorizzare Quarantena, Cestino o eliminazione permanente.
 
 Questo confine è stato verificato sulla raccolta sintetica bilingue inclusa. La prima
 esecuzione con un modello reale ha inoltre scoperto un disallineamento tra le
-istruzioni date al modello e il formato della risposta. Il punteggio aggregato di
-precisione non lo mostrava. Errore misurato e correzione sono descritti nel
+istruzioni date al modello e il formato della risposta. Il punteggio complessivo di
+precisione non mostrava il problema. L'errore misurato e la correzione sono descritti nel
 [diario di ingegneria](engineering-log.html#modello).
 
 ## Che cosa significa davvero “locale”
@@ -115,7 +119,7 @@ significa:
 
 - il contenuto passa direttamente dal fornitore scelto al computer dell'utente;
 - non viene inviato ad API di modelli, servizi di analisi o telemetria;
-- i pesi del modello sono già presenti sul dispositivo e non vengono scaricati
+- i file del modello sono già presenti sul dispositivo e non vengono scaricati
   durante una scansione;
 - il modello viene caricato soltanto per un quiz o una scansione e scaricato alla
   fine;
@@ -124,66 +128,73 @@ significa:
   oggetto, corpo o mittente in chiaro.
 
 Non significa che Gmail o Yahoo smettano di ospitare le email. Non significa nemmeno
-che un modello locale sia automaticamente sicuro: ambiente di esecuzione,
-indirizzo locale, percorsi della memoria temporanea e possibilità di rete devono
-essere controllati. La direzione futura *Verifiable Locality* aggiungerà un
-isolamento imposto dal sistema operativo e un resoconto delle
-capacità effettivamente usate durante ogni esecuzione.
+che un modello locale sia automaticamente sicuro: occorre controllare il processo
+che lo esegue, l'indirizzo di rete locale su cui risponde, i file temporanei e
+l'eventuale accesso alla rete. La futura funzione *Verifiable Locality* dovrebbe
+aggiungere un isolamento imposto dal sistema operativo e un resoconto dei permessi
+effettivamente usati durante ogni esecuzione.
 
 ## Risultati operativi senza riaprire i messaggi
 
 L'interfaccia desktop include ora un pannello operativo separato per account.
-Legge gli stessi registri aggregati privati usati dai componenti di sicurezza e
-mostra, per l'account e il modello selezionati, analisi completate, spostamenti
-reversibili realmente eseguiti verso la Quarantena, messaggi sospetti protetti,
-prove verificate da Proof of Obsolescence, attività di LumeGraph e avanzamento
-verso la soglia richiesta dal Safety Governor.
+Legge registri privati che contengono soltanto totali, gli stessi usati dai componenti
+di sicurezza. Per l'account e il modello selezionati mostra quante email sono state analizzate,
+quante sono state spostate in modo reversibile verso la Quarantena e quanti messaggi
+sospetti sono stati protetti. Mostra inoltre i risultati di Proof Of Obsolescence,
+il controllo che verifica se l'utilità di un messaggio è terminata; l'attività di
+LumeGraph, che segue il ciclo di utilità; e l'avanzamento verso la soglia richiesta
+dal Safety Governor.
 
 Durante una scansione il pannello identifica l'esecuzione in corso e dichiara
-esplicitamente se protezione antiphishing, Safety Governor, LumeGraph e Proof of
+esplicitamente se protezione antiphishing, Safety Governor, LumeGraph e Proof Of
 Obsolescence sono attivi. Le selezioni bloccate conservano una spunta visibile, così
 un controllo disabilitato non diventa un quadrato grigio ambiguo. L'aggiornamento
 dei conteggi non riapre messaggi e non espone identificativi del fornitore o testo
 in chiaro.
 
-Il pannello evita volutamente di inventare grafici statistici da semplici totali
-cumulativi. Un andamento diventa significativo soltanto quando esiste una serie
-temporale confrontabile tra più esecuzioni; fino ad allora, contatori precisi e la
-soglia reale del Safety Governor comunicano più di una curva decorativa.
+Il pannello non trasforma semplici totali cumulativi in grafici che suggerirebbero
+un andamento inesistente. Un grafico temporale diventa significativo soltanto dopo
+più scansioni confrontabili. Fino ad allora, contatori precisi e la soglia effettiva
+del Safety Governor descrivono meglio lo stato del sistema.
 
 ## Apprendere senza costruire un nuovo archivio della persona
 
 Il quiz presenta email reali sul dispositivo e chiede `Tieni`, `Non tenere` o
 `Non so`. L'obiettivo iniziale è quaranta esempi diversi, con almeno tre
-casi da proteggere e venti da non tenere. Non dipende linearmente dalle dimensioni
-della casella: sessantamila email ripetitive non richiedono sessantamila etichette,
-ma una casella con famiglie rare e molto diverse richiede copertura maggiore.
+casi da proteggere e venti da non tenere. Il numero di esempi necessari non cresce
+automaticamente insieme al numero di email: sessantamila messaggi molto simili non
+richiedono sessantamila risposte, mentre una casella con molti tipi di messaggi rari
+e diversi richiede più esempi.
 
 Per misurare la somiglianza, InboxLume normalizza il testo, estrae caratteristiche
-essenziali e conserva impronte HMAC legate all'account. Messaggi molto simili a
-esempi `Non tenere` possono
-rafforzare una proposta; un esempio simile `Tieni` o un conflitto forza invece la
-revisione. Non viene creata una lista di blocco assoluta del mittente.
+essenziali e conserva impronte crittografiche HMAC legate all'account. Queste
+impronte permettono confronti senza salvare il testo originale. Una forte somiglianza
+con esempi `Non tenere` può rafforzare una proposta. Una somiglianza con un esempio
+`Tieni`, oppure segnali in conflitto, impone invece la revisione. Il mittente non
+viene mai inserito in una lista di blocco assoluta.
 
-Le aperture recenti sono segnali deboli e possono soltanto proteggere o aumentare
-l'astensione. In futuro *Preference Weather* manterrà scale temporali distinte: un
-interesse stabile, un progetto di alcuni mesi e una curiosità di pochi giorni non
-devono decadere allo stesso modo.
+Le aperture recenti sono segnali deboli e possono soltanto proteggere un messaggio o
+aumentare i casi lasciati alla revisione. La futura funzione *Preference Weather*
+distinguerebbe preferenze con durate diverse: un interesse stabile, un progetto di
+alcuni mesi e una curiosità di pochi giorni non dovrebbero perdere importanza con
+la stessa velocità.
 
-## La matematica dell'astensione
+## La matematica dei casi lasciati alla revisione
 
-Un classificatore per pulire la posta non va valutato soltanto con l'accuratezza
-complessiva. Gli errori hanno costi asimmetrici: lasciare nella Posta in arrivo una
+Un sistema che decide quali email ripulire non va valutato soltanto con l'accuratezza
+complessiva. I diversi errori hanno conseguenze molto diverse: lasciare nella Posta in arrivo una
 pubblicità costa poco; mettere da parte una comunicazione importante può costare
 molto. Le misure prioritarie sono quindi:
 
 - **azioni di pulizia errate** sulle email da tenere;
 - **copertura**, cioè quanta parte della posta il sistema automatizza;
-- **astensione**, cioè quanta parte lascia alla revisione;
-- risultati separati per famiglia semantica e periodo.
+- **astensione**, cioè la percentuale di messaggi sui quali non compie azioni
+  automatiche e chiede una revisione;
+- risultati separati per tipo di email e periodo.
 
 Anche zero errori osservati non significa rischio zero. Con `n` casi indipendenti e
-zero errori, un limite superiore unilaterale elementare al 95% è:
+zero errori, una stima prudente del valore massimo del rischio compatibile con i
+dati, calcolata con un livello di confidenza del 95%, è:
 
 ```text
 p_upper = 1 - 0.05^(1/n)
@@ -191,98 +202,109 @@ p_upper = 1 - 0.05^(1/n)
 
 Con quaranta casi il limite è ancora circa 7,2%. Per scendere sotto l'1%, con le
 stesse ipotesi e sempre zero errori, servono circa 299 casi comparabili. Nella posta
-reale indipendenza e stazionarietà sono ipotesi fragili: temi, stagioni e interessi
-cambiano. Per questo il quiz è una configurazione iniziale, non una certificazione.
+reale i messaggi non sono sempre indipendenti e le preferenze non restano costanti:
+temi, stagioni e interessi cambiano. Per questo il quiz è una configurazione iniziale,
+non una certificazione.
 
 Il **Safety Governor personale** calcola questo limite superiore del rischio per
-account, modello e famiglia usando soltanto correzioni aggregate collegate tramite
-HMAC. Il controllo operativo facoltativo aggiunge un vincolo, non sostituisce le
-altre regole: quando le osservazioni sono ancora poche, le proposte prudenti
-continuano a seguire i limiti ordinari, mentre soltanto errori concreti e
-ripetuti limitano la famiglia interessata dalla Quarantena reversibile. La
-preferenza ordinaria Cestino diretto resta indipendente con i suoi
-vincoli. L'autorità del Safety Governor sul Cestino è invece una capacità distinta
-e più severa: richiede un modello supportato e almeno 299 revisioni conclusive senza
-errori sia nel limite globale sia nella famiglia. Cancellazione permanente e
-svuotamento del Cestino restano fuori dalla sua autorità. La deriva temporale delle
-preferenze è già implementata come segnale usato esclusivamente per proteggere:
-indicazioni recenti e attendibili di Tieni, ripristino, stella o importanza possono
-limitare la famiglia interessata, mentre un calo d'interesse non può mai autorizzare
-più azioni di pulizia.
-*Counterfactual Safety Lab* resta un obiettivo di ricerca.
+account, modello e tipo di email usando soltanto risultati complessivi collegati
+tramite HMAC. È un controllo facoltativo che aggiunge restrizioni alle regole
+ordinarie e non le sostituisce.
 
-I riferimenti metodologici di partenza includono i lavori sugli insiemi conformali
-con falsi positivi limitati e sulle regole di astensione conformalizzate:
+Quando le osservazioni sono poche, continuano a valere i normali limiti di sicurezza.
+Se invece si ripetono errori concreti in uno specifico tipo di email, il Safety
+Governor limita le proposte di Quarantena soltanto per quel tipo. L'opzione ordinaria
+che consente di proporre direttamente il Cestino rimane separata e conserva i propri
+vincoli.
+
+Il Safety Governor può autorizzare il Cestino soltanto in condizioni più severe:
+serve un modello supportato e occorrono almeno 299 revisioni senza errori, sia nel
+totale sia per il tipo di email interessato. Non può mai autorizzare l'eliminazione
+permanente o lo svuotamento del Cestino.
+
+InboxLume considera anche i cambiamenti delle preferenze nel tempo, ma soltanto per
+aumentare la protezione. Indicazioni recenti e attendibili come `Tieni`, ripristino,
+stella o importanza possono ridurre le azioni automatiche per un tipo di email. Un
+calo di interesse, invece, non può mai autorizzare più pulizia.
+*Counterfactual Safety Lab*, la linea di ricerca sulle variazioni controfattuali dei
+messaggi, non è ancora una funzione disponibile.
+
+I riferimenti metodologici di partenza includono studi su metodi statistici che
+limitano i falsi positivi e decidono quando un classificatore deve astenersi, cioè
+lasciare la decisione alla revisione:
 
 - https://proceedings.mlr.press/v162/fisch22a.html
 - https://proceedings.mlr.press/v304/tayebati26a.html
 
 ## Modelli differenti, limiti differenti
 
-InboxLume non presenta un modello da 8 miliardi di parametri come equivalente a uno
-più capace. La prima matrice controllata prevede:
+InboxLume non considera equivalenti modelli con dimensioni e capacità diverse. Ogni
+profilo ha quindi requisiti e limiti operativi specifici:
 
-| Profilo | RAM consigliata | Soglia di pulizia | Destinazione massima |
+| Profilo | RAM consigliata | Punteggio minimo per proporre la pulizia | Destinazione massima |
 |---|---:|---:|---|
 | Qwen 8B leggero | 12 GB | 0,97 | sola Quarantena |
 | Gemma 12B bilanciato | 16 GB | 0,95 | sola Quarantena |
-| Gemma 26B-A4B consigliato | 24 GB | 0,93 | Cestino solo se calibrato |
+| Gemma 26B-A4B consigliato | 24 GB | 0,93 | Cestino solo dopo calibrazione |
 
 Su un singolo Mac di sviluppo, per cinque messaggi sintetici includendo caricamento
 e scaricamento del modello, sono stati osservati circa 5,4 secondi con Qwen 8B, 8,7
-con Gemma 12B e 9,7 con Gemma 26B-A4B. I picchi annotati per i due Gemma sono 11,2
-e 14,7 GB. Questi numeri non sono misure universali.
+con Gemma 12B e 9,7 con Gemma 26B-A4B. La memoria massima registrata per i due Gemma
+è stata rispettivamente 11,2 e 14,7 GB. Questi numeri provengono da un solo ambiente
+di prova e non rappresentano prestazioni universali.
 
 Sul campione locale più ampio finora disponibile, Gemma 26B-A4B non ha prodotto
 azioni di pulizia errate sui quattro esempi `Tieni` valutabili e ha riconosciuto il
-66,22% dei `Non tenere` come candidati. Quattro casi protetti sono decisamente insufficienti
-per stimare un evento raro: la conclusione corretta non è “sicuro”, ma “migliore tra
-i candidati provati, con Quarantena e vincoli di sicurezza ancora necessari”.
+66,22% dei `Non tenere` come candidati alla pulizia. Quattro esempi da proteggere sono troppo pochi
+per stimare un errore raro. Il risultato consente soltanto di dire che, fra i modelli
+provati, è il candidato migliore; Quarantena e vincoli di sicurezza restano necessari.
 
-## Quarantena prima dell'automazione irreversibile
+## Quarantena prima del Cestino
 
 La destinazione predefinita è una quarantena visibile. Su Gmail è un'etichetta e il
-messaggio può restare nella Posta in arrivo; su Yahoo è una cartella dedicata. Il
-successivo passaggio al Cestino può richiedere almeno tre giorni e un nuovo
-controllo dello stato.
+messaggio può restare nella Posta in arrivo; su Yahoo è una cartella dedicata. Prima
+di proporre il successivo passaggio al Cestino devono trascorrere almeno tre giorni
+e il messaggio viene controllato di nuovo.
 
-Il Cestino non è una cassaforte: Gmail e Yahoo applicano propri tempi di
-conservazione. Per questo l'interfaccia avverte che il fornitore può svuotarlo,
-mentre InboxLume non possiede alcuna funzione per farlo. La scelta diretta è separata per account,
-richiede calibrazione e, secondo le regole correnti, è ammessa soltanto con il profilo
-consigliato.
+Il Cestino non garantisce la conservazione dei messaggi: Gmail e Yahoo applicano i
+propri tempi di eliminazione. Per questo l'interfaccia avverte che il fornitore può svuotarlo,
+mentre InboxLume non possiede alcuna funzione per farlo. L'opzione che consente di
+proporre direttamente il Cestino è configurata separatamente per ogni account,
+richiede calibrazione e, secondo le regole correnti, è disponibile soltanto con il
+profilo consigliato.
 
 ## Dove InboxLume vuole arrivare
 
 L'elemento distintivo non può essere semplicemente “usa Gemma in locale”. I
-modelli sono sostituibili e il codice open source è copiabile. Il vantaggio difficile
-da replicare deve nascere dalla combinazione tra stato personale accumulato,
-metodologia del rischio e confini verificabili:
+modelli sono sostituibili e il codice open source è copiabile. L'elemento più difficile
+da replicare deve nascere dalla combinazione tra preferenze locali apprese nel tempo,
+misurazione del rischio e limiti tecnici verificabili:
 
 ```text
-LumeGraph
-  -> Proof of Obsolescence
-  -> Safety Governor
-  -> Counterfactual Safety Lab
-  -> autorizzazione firmata
-  -> esecutore ristretto
-  -> quarantena reversibile
-  -> correzione causale
+LumeGraph (segue il ciclo di utilità)
+  -> Proof Of Obsolescence (verifica che l'utilità sia terminata)
+  -> Safety Governor (limita le azioni in base agli errori osservati)
+  -> Counterfactual Safety Lab (ricerca futura)
+  -> autorizzazione tecnica firmata e con scadenza
+  -> componente con permessi limitati
+  -> Quarantena reversibile
+  -> correzione dell'utente registrata localmente
 ```
 
-**LumeGraph** rappresenta ora il
-ciclo di utilità: ordine, spedizione, consegna; prenotazione, modifica, evento
-concluso; codice, uso o scadenza. Il controllo operativo **Proof of Obsolescence**
-richiede una prova locale verificata che l’utilità sia conclusa e può promuovere
-Revisione soltanto a Quarantena reversibile. **Proof-Carrying Cleanup** trasformerà
-la decisione in un'autorizzazione firmata, limitata a un identificativo, una
-destinazione e una scadenza.
+**LumeGraph** rappresenta il ciclo di utilità di alcuni messaggi: per esempio ordine,
+spedizione e consegna; oppure prenotazione, modifica ed evento concluso. Il controllo
+**Proof Of Obsolescence** richiede un elemento locale che indichi in modo verificabile
+che questo ciclo è terminato. Può trasformare una proposta di sola Revisione in uno spostamento verso
+la Quarantena reversibile, mai verso il Cestino. La futura funzione
+**Proof-Carrying Cleanup** dovrebbe associare alla decisione un'autorizzazione
+firmata, valida soltanto per uno specifico identificativo, una destinazione e un
+periodo limitato.
 
-Altre direzioni previste sono il rilevamento di comunicazioni attese ma mancanti, un
-profilo personale dei mittenti oltre l'attuale protezione tecnica e semantica
-dalle minacce e **LumeReply**, consigliere su richiesta che individua domande e
-impegni senza leggere Posta inviata e senza spedire nulla. Sono ricerca futura: non devono
-apparire come funzioni già disponibili.
+Fra le funzioni future ci sono il rilevamento di comunicazioni attese ma mai arrivate,
+un profilo personale dei mittenti distinto dall'attuale protezione antiphishing e
+**LumeReply**. Quest'ultimo sarebbe un consigliere attivato su richiesta per individuare
+domande e impegni, senza leggere la Posta inviata e senza spedire messaggi. Queste
+funzioni non sono ancora disponibili.
 
 Per l'estrazione strutturata da email e i suoi vincoli di privacy, un riferimento
 utile è il lavoro di Google Research:
@@ -290,35 +312,42 @@ https://research.google/pubs/anatomy-of-a-privacy-safe-large-scale-information-e
 
 ## Stato del progetto e trasparenza sulla pubblicazione
 
-Un [diario di ingegneria](ENGINEERING_LOG.md) affiancato registra cosa è
-successo la prima volta che il sistema ha incontrato un modello locale vero, un
-server IMAP vero e un Mac vero, con i numeri di ogni esecuzione e ciò che
-ancora non dimostrano.
+Il [diario di ingegneria](engineering-log.html) descrive cosa è successo durante le
+prime prove del sistema con un modello locale, un server IMAP e un Mac reali. Riporta
+i risultati misurati e chiarisce anche ciò che quei risultati non dimostrano.
 
 InboxLume è un progetto gratuito e open source su GitHub, non un servizio
 commerciale. Codice sorgente e documentazione di progetto sono distribuiti con licenza
-Apache-2.0; pesi dei modelli, dipendenze di terze parti e dati dell'utente conservano
-le rispettive condizioni. Il repository pubblico fotografa un progetto ancora in
-sviluppo, non una versione installabile ufficialmente supportata.
+Apache-2.0; i file dei modelli e le dipendenze di terze parti mantengono le rispettive
+licenze e condizioni d'uso. Queste licenze non si applicano ai dati dell'utente. Il
+repository pubblico fotografa un progetto ancora in
+sviluppo, non una versione installabile pronta e supportata per l'uso pubblico.
 
-Interfaccia grafica, Gmail/Yahoo, più account, quiz, scansioni avviate su richiesta,
-profili modello, pianificazione nativa, protezione locale dalle minacce, LumeGraph,
-Proof of Obsolescence, deriva temporale, prove del Safety Governor e pannello
-operativo per account hanno una
-base funzionante. L'integrazione continua (CI) e il sito sono pubblici, ma il
-controllo di pubblicazione separato resta deliberatamente chiuso. Prima di una
-versione installabile servono almeno funzioni concordate, test su macchine pulite,
-firme, revisione dei permessi, misurazioni più robuste e
-materiali di pubblicazione approvati.
+Sono già presenti e funzionanti:
+
+- interfaccia grafica, collegamento a Gmail e Yahoo e gestione separata di più account;
+- quiz, scansioni avviate su richiesta, profili dei modelli e pianificazione tramite
+  il sistema operativo;
+- protezione locale dalle minacce;
+- LumeGraph, Proof Of Obsolescence, controllo dei cambiamenti nel tempo e Safety
+  Governor;
+- pannello operativo separato per ogni account.
+
+L'integrazione continua (CI) e il sito sono pubblici, ma un controllo automatico
+continua a bloccare la creazione di una versione installabile destinata al pubblico.
+Prima di consentire la distribuzione servono almeno il completamento delle funzioni
+previste, test su macchine pulite, firma dei pacchetti, revisione dei permessi,
+misurazioni più robuste e materiali di pubblicazione approvati.
 
 InboxLume non prometterà sicurezza al 100%, non chiamerà un punteggio di
-affidabilità del modello “probabilità” senza calibrazione e non dichiarerà primati
-mondiali senza una ricerca
-professionale. La promessa più utile è più concreta:
+affidabilità del modello “probabilità” senza calibrazione e non dichiarerà di essere
+il primo o il migliore prodotto senza una ricerca indipendente e documentata. La promessa più
+utile è più concreta:
 
-> ogni intervento automatico di pulizia dovrà spiegare quale utilità è terminata,
-> con quale livello misurato di rischio personale e con quale permesso tecnico,
-> limitato e reversibile, è stato eseguito.
+> per ogni intervento automatico, InboxLume dovrà spiegare perché il messaggio non è
+> più utile, quale rischio personale è stato misurato e quale permesso tecnico,
+> limitato e reversibile, ha autorizzato l'azione.
 
-Questa è la direzione: non un'altra IA che possiede la posta, ma un sistema locale
-che deve guadagnarsi il diritto di intervenire su ogni sua parte.
+Questa è la direzione: non un altro servizio di IA a cui affidare la posta, ma un
+sistema locale che può intervenire soltanto quando dispone di prove e permessi
+sufficienti.

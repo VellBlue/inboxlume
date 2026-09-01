@@ -89,7 +89,7 @@ ARTICLES = (
         asset_prefix="../assets",
         preview_notice=(
             "Anteprima pubblica di sviluppo — non è ancora disponibile una versione "
-            "installabile ufficialmente supportata."
+            "installabile pronta e supportata per l'uso pubblico."
         ),
         overview_label="Panoramica",
         log_label="Diario di ingegneria",
@@ -98,8 +98,9 @@ ARTICLES = (
         eyebrow="Articolo tecnico · stato del progetto",
         privacy_notice=(
             "Nessun servizio di analisi, cookie, font remoto o script di terze parti. "
-            "Questa è un'anteprima pubblica di sviluppo sanificata, non una versione "
-            "installabile supportata."
+            "Questa anteprima pubblica è stata ripulita da dati personali e descrive "
+            "un progetto ancora in sviluppo, non una versione installabile pronta "
+            "per l'uso pubblico."
         ),
         navigation_label="Navigazione principale",
     ),
