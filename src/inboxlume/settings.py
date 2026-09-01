@@ -143,10 +143,10 @@ class AccountSettings:
             raise ValueError("i giorni delle email non lette devono essere tra 1 e 3650")
         if not 1 <= self.read_one_time_code_age_days <= 3650:
             raise ValueError("i giorni dei codici monouso devono essere tra 1 e 3650")
-        if not 0 <= self.batch_size <= 500:
+        if not 0 <= self.batch_size <= 5000:
             raise ValueError(
                 "la dimensione del lotto deve essere 0 (tutte le email idonee) "
-                "oppure tra 1 e 500"
+                "oppure tra 1 e 5000"
             )
         if not 1 <= self.quiz_size <= 500:
             raise ValueError("la dimensione del quiz deve essere tra 1 e 500")

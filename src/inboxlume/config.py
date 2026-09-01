@@ -150,9 +150,9 @@ class AccountPolicy:
         if (
             isinstance(self.max_candidates_per_run, bool)
             or not isinstance(self.max_candidates_per_run, int)
-            or not 1 <= self.max_candidates_per_run <= 1000
+            or not 1 <= self.max_candidates_per_run <= 5000
         ):
-            raise ValueError("max_candidates_per_run deve essere tra 1 e 1000")
+            raise ValueError("max_candidates_per_run deve essere tra 1 e 5000")
         if type(self.protect_attachments) is not bool:
             raise ValueError("protect_attachments deve essere booleano")
         if self.mode is not OperatingMode.SHADOW:

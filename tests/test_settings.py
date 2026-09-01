@@ -449,5 +449,36 @@ class ThreatSemanticModeSettingsTests(unittest.TestCase):
         )
 
 
+class BatchSizeCeilingTests(unittest.TestCase):
+    """The bounds that gate a batch must stay consistent with each other."""
+
+    ROOT = Path(__file__).resolve().parents[1]
+    LARGEST = 5000
+
+    def test_a_saveable_batch_is_always_a_runnable_batch(self) -> None:
+        from inboxlume.cli import load_policies
+
+        AccountSettings("yahoo_test", ProviderKind.YAHOO, batch_size=self.LARGEST)
+        policies = load_policies(self.ROOT / "config/accounts.example.json")
+        for account_id, policy in policies.items():
+            with self.subTest(account=account_id):
+                # Raising the saveable maximum without raising the policy would
+                # let a user store a batch the scan then refuses at runtime.
+                self.assertGreaterEqual(
+                    policy.max_candidates_per_run, self.LARGEST
+                )
+
+    def test_the_ceiling_is_enforced_and_reported_accurately(self) -> None:
+        with self.assertRaises(ValueError) as caught:
+            AccountSettings(
+                "yahoo_test", ProviderKind.YAHOO, batch_size=self.LARGEST + 1
+            )
+        self.assertIn(str(self.LARGEST), str(caught.exception))
+
+    def test_zero_still_means_every_eligible_message(self) -> None:
+        account = AccountSettings("yahoo_test", ProviderKind.YAHOO, batch_size=0)
+        self.assertEqual(account.batch_size, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
