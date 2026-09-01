@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import struct
 import tomllib
 import unittest
 from pathlib import Path
@@ -105,6 +106,18 @@ class PublicationPreparationTests(unittest.TestCase):
             self.assertIn(language_marker, page)
             self.assertNotIn("http://", page)
             self.assertIn(f'<link rel="canonical" href="{canonical_urls[path]}">', page)
+            self.assertIn(
+                '<meta property="og:image" content="https://vellblue.github.io/inboxlume/assets/og-card.png">',
+                page,
+            )
+            self.assertIn('<meta property="og:image:width" content="1200">', page)
+            self.assertIn('<meta property="og:image:height" content="630">', page)
+            self.assertIn('<meta property="og:image:alt" content=', page)
+            self.assertIn('<meta name="twitter:card" content="summary_large_image">', page)
+            self.assertIn(
+                '<meta name="twitter:image" content="https://vellblue.github.io/inboxlume/assets/og-card.png">',
+                page,
+            )
             for source in re.findall(r'src="([^"]+)"', page):
                 self.assertFalse(urlsplit(source).scheme, f"{path}: remote asset {source}")
             folded = page.casefold()
@@ -129,14 +142,20 @@ class PublicationPreparationTests(unittest.TestCase):
             "docs/assets/architecture.svg",
             "docs/assets/inboxlume-settings.png",
             "docs/assets/inboxlume-settings-it.png",
+            "docs/assets/og-card.png",
             "docs/it/ARTICLE.md",
             "docs/article.html",
             "docs/it/article.html",
             "docs/engineering-log.html",
             "docs/it/engineering-log.html",
             "scripts/render_public_articles.py",
+            "scripts/build_og_card.py",
         ):
             self.assertTrue((ROOT / asset).is_file(), asset)
+
+        card = (ROOT / "docs/assets/og-card.png").read_bytes()
+        self.assertEqual(card[:8], b"\x89PNG\r\n\x1a\n")
+        self.assertEqual(struct.unpack(">II", card[16:24]), (1200, 630))
 
     def test_static_articles_match_their_markdown_sources(self) -> None:
         for article in ARTICLES:

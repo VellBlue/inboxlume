@@ -17,6 +17,9 @@ class Article:
     language: str
     description: str
     canonical: str
+    og_locale: str
+    alternate_og_locale: str
+    image_alt: str
     alternate_language: str
     alternate_href: str
     alternate_canonical: str
@@ -43,6 +46,9 @@ ARTICLES = (
             "and measurable safety limits for large inboxes."
         ),
         canonical="https://vellblue.github.io/inboxlume/article.html",
+        og_locale="en_US",
+        alternate_og_locale="it_IT",
+        image_alt="InboxLume — private AI for a cleaner inbox",
         alternate_language="it",
         alternate_href="it/article.html",
         alternate_canonical="https://vellblue.github.io/inboxlume/it/article.html",
@@ -72,6 +78,9 @@ ARTICLES = (
             "e limiti di sicurezza misurabili per caselle di posta molto grandi."
         ),
         canonical="https://vellblue.github.io/inboxlume/it/article.html",
+        og_locale="it_IT",
+        alternate_og_locale="en_US",
+        image_alt="InboxLume — IA privata per una posta più pulita",
         alternate_language="en",
         alternate_href="../article.html",
         alternate_canonical="https://vellblue.github.io/inboxlume/article.html",
@@ -260,6 +269,19 @@ def _document(article: Article) -> str:
   <meta property="og:title" content="{html.escape(title, quote=True)}">
   <meta property="og:description" content="{html.escape(article.description, quote=True)}">
   <meta property="og:url" content="{article.canonical}">
+  <meta property="og:image" content="https://vellblue.github.io/inboxlume/assets/og-card.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="{html.escape(article.image_alt, quote=True)}">
+  <meta property="og:site_name" content="InboxLume">
+  <meta property="og:locale" content="{article.og_locale}">
+  <meta property="og:locale:alternate" content="{article.alternate_og_locale}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{html.escape(title, quote=True)}">
+  <meta name="twitter:description" content="{html.escape(article.description, quote=True)}">
+  <meta name="twitter:image" content="https://vellblue.github.io/inboxlume/assets/og-card.png">
+  <meta name="twitter:image:alt" content="{html.escape(article.image_alt, quote=True)}">
   <title>{html.escape(title)} — InboxLume</title>
   <link rel="icon" href="{article.asset_prefix}/favicon.svg" type="image/svg+xml">
   <link rel="canonical" href="{article.canonical}">
