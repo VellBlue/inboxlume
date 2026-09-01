@@ -585,6 +585,9 @@ def _execute_scan_locked(
     if args.limit:
         summary = run_once(args.limit, progress)
     else:
+        # A fixed chunk larger than the account ceiling would make every
+        # unlimited scan fail validation instead of running.
+        chunk_size = min(UNLIMITED_SCAN_CHUNK_SIZE, policy.max_candidates_per_run)
         summaries: list[dict[str, Any]] = []
         processed_total = 0
         while True:
@@ -598,14 +601,11 @@ def _execute_scan_locked(
             ) -> None:
                 progress(offset + processed, 0)
 
-            chunk_summary = run_once(
-                UNLIMITED_SCAN_CHUNK_SIZE,
-                unlimited_progress,
-            )
+            chunk_summary = run_once(chunk_size, unlimited_progress)
             summaries.append(chunk_summary)
             chunk_processed = int(chunk_summary.get("newly_processed", 0))
             processed_total += chunk_processed
-            if chunk_processed < UNLIMITED_SCAN_CHUNK_SIZE:
+            if chunk_processed < chunk_size:
                 break
         summary = _merged_unlimited_summary(summaries)
     summary = dict(summary)

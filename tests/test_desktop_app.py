@@ -97,8 +97,8 @@ class DesktopAppTests(unittest.TestCase):
             self.assertTrue(window.english_language_button.isChecked())
             self.assertFalse(window.italian_language_button.isChecked())
             self.assertEqual(window.schedule_time.time().hour(), 4)
-            self.assertEqual(window.batch_size.minimum(), 0)
-            self.assertEqual(window.batch_size.specialValueText(), "All eligible")
+            self.assertEqual(window.batch_size.minimum(), 1)
+            self.assertEqual(window.batch_all.text(), "All eligible")
             self.assertIn(
                 "available after the account is connected",
                 window.governor_status.text(),
@@ -467,6 +467,50 @@ class ReviewScopeTests(unittest.TestCase):
         self.assertIn("REVIEW_SEARCH_LIMIT", body)
         self.assertGreaterEqual(REVIEW_CANDIDATE_LIMIT, 500)
         self.assertGreaterEqual(REVIEW_SEARCH_LIMIT, REVIEW_CANDIDATE_LIMIT)
+
+
+@unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
+class BatchSelectionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        cls.app = QApplication.instance() or QApplication([])
+
+    def _window(self):
+        from inboxlume.desktop_app import SettingsWindow
+
+        return SettingsWindow()
+
+    def test_every_eligible_is_a_tick_rather_than_a_zero(self) -> None:
+        from inboxlume.settings import AccountSettings
+
+        window = self._window()
+        # Reaching "unlimited" by counting down to zero was undiscoverable.
+        self.assertGreaterEqual(window.batch_size.minimum(), 1)
+        window._load_form(
+            AccountSettings("yahoo_test", ProviderKind.YAHOO, batch_size=0)
+        )
+        self.assertTrue(window.batch_all.isChecked())
+        self.assertTrue(window.batch_size.isReadOnly())
+
+    def test_an_explicit_batch_leaves_the_tick_clear(self) -> None:
+        from inboxlume.settings import AccountSettings
+
+        window = self._window()
+        window._load_form(
+            AccountSettings("yahoo_test", ProviderKind.YAHOO, batch_size=2500)
+        )
+        self.assertFalse(window.batch_all.isChecked())
+        self.assertFalse(window.batch_size.isReadOnly())
+        self.assertEqual(window.batch_size.value(), 2500)
+
+    def test_the_tick_still_saves_as_zero(self) -> None:
+        window = self._window()
+        window.batch_all.setChecked(True)
+        window.batch_size.setValue(2000)
+
+        # Zero remains the stored form, so nothing downstream has to change.
+        self.assertTrue(window.batch_size.isReadOnly())
 
 
 @unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")

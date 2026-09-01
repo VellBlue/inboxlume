@@ -275,6 +275,10 @@ is this Google Research system description:
 
 ## Project and release status
 
+A companion [engineering log](ENGINEERING_LOG.md) records what happened the
+first time the system met a real local model, a real IMAP server and a real Mac,
+with the numbers from each run and what they still do not prove.
+
 InboxLume is a free open-source GitHub project, not a commercial service. Source
 code and project documentation are licensed under Apache-2.0; model weights,
 third-party dependencies, and user data retain their own terms. The public

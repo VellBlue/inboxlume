@@ -290,6 +290,11 @@ https://research.google/pubs/anatomy-of-a-privacy-safe-large-scale-information-e
 
 ## Stato del progetto e trasparenza sulla pubblicazione
 
+Un [diario di ingegneria](ENGINEERING_LOG.md) affiancato registra cosa è
+successo la prima volta che il sistema ha incontrato un modello locale vero, un
+server IMAP vero e un Mac vero, con i numeri di ogni esecuzione e ciò che
+ancora non dimostrano.
+
 InboxLume è un progetto gratuito e open source su GitHub, non un servizio
 commerciale. Codice sorgente e documentazione di progetto sono distribuiti con licenza
 Apache-2.0; pesi dei modelli, dipendenze di terze parti e dati dell'utente conservano

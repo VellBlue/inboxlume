@@ -229,6 +229,7 @@ ITALIAN_UI: dict[str, str] = {
     "Maximum email per session": "Numero massimo di email per sessione",
     "Maximum per session": "Massimo per sessione",
     "All eligible": "Tutte le idonee",
+    "Process every eligible email": "Elabora tutte le email idonee",
     "Choose All eligible to continue until no eligible, unprocessed email remains. Later sessions always skip messages already recorded.": "Scegli Tutte le idonee per continuare finché non restano email idonee non ancora elaborate. Le sessioni successive saltano sempre i messaggi già registrati.",
     " questions": " domande",
     "Quiz question count": "Numero di domande del quiz",

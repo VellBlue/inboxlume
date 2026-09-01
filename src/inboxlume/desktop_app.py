@@ -1615,15 +1615,24 @@ class SettingsWindow(QMainWindow):
         )
         execution.setObjectName("executionCard")
         self.batch_size = QSpinBox()
-        self.batch_size.setRange(0, 5000)
+        self.batch_size.setRange(1, 5000)
         self.batch_size.setSingleStep(500)
         self.batch_size.setSuffix(self._(" emails"))
-        self.batch_size.setSpecialValueText(self._("All eligible"))
         self.batch_size.setAccessibleName(self._("Maximum email per session"))
+        self.batch_all = ClearCheckBox(self._("All eligible"))
+        self.batch_all.setAccessibleName(self._("Process every eligible email"))
+        # Read-only rather than disabled: the busy handlers own the enabled
+        # state, so the two must not fight over the same property.
+        batch_row = QWidget()
+        batch_layout = QHBoxLayout(batch_row)
+        batch_layout.setContentsMargins(0, 0, 0, 0)
+        batch_layout.setSpacing(12)
+        batch_layout.addWidget(self.batch_size)
+        batch_layout.addWidget(self.batch_all)
         execution.add_field(
             self._("Maximum per session"),
             self._("Choose All eligible to continue until no eligible, unprocessed email remains. Later sessions always skip messages already recorded."),
-            self.batch_size,
+            batch_row,
         )
 
         self.quiz_size = QSpinBox()
@@ -2160,10 +2169,17 @@ class SettingsWindow(QMainWindow):
             self.quiz_size,
         ):
             control.valueChanged.connect(self._mark_dirty)
+        self.batch_all.toggled.connect(self._mark_dirty)
         for control in (self.unread_days, self.otp_days, self.batch_size):
             control.valueChanged.connect(self._reset_duration_estimate)
+        self.batch_all.toggled.connect(self._batch_all_changed)
         self.scan_order.currentIndexChanged.connect(self._mark_dirty)
         self.model_profile.currentIndexChanged.connect(self._model_changed)
+
+    def _batch_all_changed(self, checked: bool) -> None:
+        self.batch_size.setReadOnly(checked)
+        self._mark_dirty()
+        self._reset_duration_estimate()
 
     def _language_changed(self, language: UiLanguage) -> None:
         if language is self.settings.language:
@@ -2315,6 +2331,7 @@ class SettingsWindow(QMainWindow):
             self.unread_days,
             self.otp_days,
             self.batch_size,
+            self.batch_all,
             self.quiz_size,
             self.scan_order,
             self.model_profile,
@@ -2344,7 +2361,9 @@ class SettingsWindow(QMainWindow):
             )
             self.unread_days.setValue(account.unread_age_days)
             self.otp_days.setValue(account.read_one_time_code_age_days)
-            self.batch_size.setValue(account.batch_size)
+            self.batch_all.setChecked(account.batch_size == 0)
+            self.batch_size.setValue(account.batch_size or 500)
+            self.batch_size.setReadOnly(account.batch_size == 0)
             self.quiz_size.setValue(account.quiz_size)
             order_index = self.scan_order.findData(account.scan_order)
             self.scan_order.setCurrentIndex(max(0, order_index))
@@ -2413,7 +2432,7 @@ class SettingsWindow(QMainWindow):
             unread_age_days=self.unread_days.value(),
             read_one_time_code_age_days=self.otp_days.value(),
             scan_order=order,
-            batch_size=self.batch_size.value(),
+            batch_size=0 if self.batch_all.isChecked() else self.batch_size.value(),
             quiz_size=self.quiz_size.value(),
             destination=destination,
             model_profile=selected_model,
@@ -2907,6 +2926,7 @@ class SettingsWindow(QMainWindow):
             self.otp_days,
             self.scan_order,
             self.batch_size,
+            self.batch_all,
             self.quiz_size,
             self.model_profile,
             self.quarantine_radio,
@@ -3311,6 +3331,7 @@ class SettingsWindow(QMainWindow):
             self.otp_days,
             self.scan_order,
             self.batch_size,
+            self.batch_all,
             self.quiz_size,
             self.model_profile,
             self.quarantine_radio,
@@ -4128,6 +4149,7 @@ class SettingsWindow(QMainWindow):
             self.otp_days,
             self.scan_order,
             self.batch_size,
+            self.batch_all,
             self.quiz_size,
             self.model_profile,
             self.quarantine_radio,
