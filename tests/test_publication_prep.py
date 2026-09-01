@@ -105,6 +105,11 @@ class PublicationPreparationTests(unittest.TestCase):
             page = path.read_text(encoding="utf-8")
             self.assertIn(language_marker, page)
             self.assertNotIn("http://", page)
+            self.assertIn(
+                '<span class="brand-mark" aria-hidden="true"><img src=',
+                page,
+            )
+            self.assertNotIn('<span class="brand-mark">IL</span>', page)
             self.assertIn(f'<link rel="canonical" href="{canonical_urls[path]}">', page)
             self.assertIn(
                 '<meta property="og:image" content="https://vellblue.github.io/inboxlume/assets/og-card.png">',
@@ -136,8 +141,17 @@ class PublicationPreparationTests(unittest.TestCase):
             self.assertIn("article.html", content)
             self.assertIn("engineering-log.html", content)
         self.assertNotIn("@import", css)
+        self.assertEqual(
+            (ROOT / "docs/assets/favicon.svg").read_text(encoding="utf-8"),
+            (ROOT / "src/inboxlume/brand_mark.svg").read_text(encoding="utf-8"),
+        )
+        self.assertEqual(
+            (ROOT / "docs/assets/brand-mark.svg").read_text(encoding="utf-8"),
+            (ROOT / "src/inboxlume/brand_mark.svg").read_text(encoding="utf-8"),
+        )
         for asset in (
             "docs/assets/site.css",
+            "docs/assets/brand-mark.svg",
             "docs/assets/favicon.svg",
             "docs/assets/architecture.svg",
             "docs/assets/inboxlume-settings.png",

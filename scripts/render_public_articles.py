@@ -284,17 +284,17 @@ def _document(article: Article) -> str:
   <meta name="twitter:image" content="https://vellblue.github.io/inboxlume/assets/og-card.png">
   <meta name="twitter:image:alt" content="{html.escape(article.image_alt, quote=True)}">
   <title>{html.escape(title)} — InboxLume</title>
-  <link rel="icon" href="{article.asset_prefix}/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="{article.asset_prefix}/favicon.svg?v=20260901b" type="image/svg+xml">
   <link rel="canonical" href="{article.canonical}">
   <link rel="alternate" hreflang="{article.language}" href="{article.canonical}">
   <link rel="alternate" hreflang="{article.alternate_language}" href="{article.alternate_canonical}">
-  <link rel="stylesheet" href="{article.asset_prefix}/site.css?v=20260901a">
+  <link rel="stylesheet" href="{article.asset_prefix}/site.css?v=20260901b">
 </head>
 <body>
   <div class="preflight">{html.escape(article.preview_notice)}</div>
   <header class="wrap">
     <nav aria-label="{article.navigation_label}">
-      <a class="brand" href="{article.home_href}"><span class="brand-mark">IL</span><strong>InboxLume</strong></a>
+      <a class="brand" href="{article.home_href}"><span class="brand-mark" aria-hidden="true"><img src="{article.asset_prefix}/brand-mark.svg" alt=""></span><strong>InboxLume</strong></a>
       <div class="nav-links">
         <a href="{article.alternate_href}" lang="{article.alternate_language}">{article.language_label}</a>
         <a href="{article.home_href}">{article.overview_label}</a>
@@ -318,7 +318,7 @@ def _document(article: Article) -> str:
 
   <footer>
     <div class="wrap footer-grid">
-      <div><a class="brand" href="{article.home_href}"><span class="brand-mark">IL</span><strong>InboxLume</strong></a></div>
+      <div><a class="brand" href="{article.home_href}"><span class="brand-mark" aria-hidden="true"><img src="{article.asset_prefix}/brand-mark.svg" alt=""></span><strong>InboxLume</strong></a></div>
       <div class="privacy-note">{html.escape(article.privacy_notice)}</div>
     </div>
   </footer>
