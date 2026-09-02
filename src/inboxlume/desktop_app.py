@@ -569,6 +569,17 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
 """
 
 
+def _source_root() -> Path | None:
+    """Return the checkout source root, when the app runs from one.
+
+    An installed package is already importable, so only a checkout needs to be
+    named explicitly to a scheduled job.
+    """
+
+    root = Path(__file__).resolve().parent.parent
+    return root if root.name == "src" else None
+
+
 def _brand_mark_pixmap(size: int) -> QPixmap | None:
     """Render the vector brand mark for the sidebar badge.
 
@@ -3485,6 +3496,7 @@ class SettingsWindow(QMainWindow):
             scheduled_executable,
             draft,
             packaged_worker=packaged_worker,
+            source_root=None if packaged_worker else _source_root(),
         )
 
         def install() -> object:

@@ -199,5 +199,38 @@ class NativeSchedulerTests(unittest.TestCase):
             )
 
 
+class ScheduledJobIndependenceTests(unittest.TestCase):
+    """A scheduled job must start without the interactive launcher's repairs."""
+
+    def _request(self, **overrides):
+        from inboxlume.native_scheduler import ScheduleRequest
+        from inboxlume.settings import ScheduleSettings
+
+        arguments = {
+            "account_id": "yahoo_test",
+            "settings_path": Path("/users/example/Library/settings.json"),
+            "python_executable": Path("/users/example/.venv/bin/python"),
+            "schedule": ScheduleSettings(enabled=True, hour=6),
+            "source_root": Path("/users/example/project/src"),
+        }
+        arguments.update(overrides)
+        return ScheduleRequest(**arguments)
+
+    def test_a_checkout_job_names_its_own_source_root(self) -> None:
+        # A .pth file can be hidden by a syncing folder, and Python then
+        # ignores it, so the job must not depend on it.
+        environment = self._request().environment
+        self.assertEqual(environment["PYTHONPATH"], "/users/example/project/src")
+
+    def test_a_packaged_job_never_receives_a_source_root(self) -> None:
+        environment = self._request(packaged_worker=True).environment
+        self.assertNotIn("PYTHONPATH", environment)
+
+    def test_a_failure_is_written_somewhere_it_can_be_read(self) -> None:
+        log = self._request().log_path
+        self.assertNotEqual(str(log), "/dev/null")
+        self.assertIn("yahoo_test", log.name)
+
+
 if __name__ == "__main__":
     unittest.main()

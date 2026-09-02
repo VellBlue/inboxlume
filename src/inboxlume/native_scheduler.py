@@ -68,6 +68,7 @@ class ScheduleRequest:
     python_executable: Path
     schedule: ScheduleSettings
     packaged_worker: bool = False
+    source_root: Path | None = None
 
     def __post_init__(self) -> None:
         if _ACCOUNT_ID.fullmatch(self.account_id) is None:
@@ -80,6 +81,37 @@ class ScheduleRequest:
             raise ValueError("la pianificazione deve essere abilitata prima di installarla")
         if not isinstance(self.packaged_worker, bool):
             raise ValueError("modalità worker pianificato non valida")
+        if self.source_root is not None and not self.source_root.is_absolute():
+            raise ValueError("il percorso dei sorgenti deve essere assoluto")
+
+    @property
+    def environment(self) -> dict[str, str]:
+        """Environment the scheduled job needs to start on its own.
+
+        A source checkout is reachable through a .pth file that a syncing
+        folder can mark hidden, and Python then silently ignores it. Naming the
+        source root here keeps the job independent of that file. A packaged
+        worker carries its own modules and must not receive it.
+        """
+
+        environment = {"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"}
+        if self.source_root is not None and not self.packaged_worker:
+            environment["PYTHONPATH"] = str(self.source_root)
+        return environment
+
+    @property
+    def log_path(self) -> Path:
+        """Where a scheduled failure can be read afterwards.
+
+        The scheduled run prints aggregate JSON only, so this never receives
+        message text; without it a failure before that point leaves no trace.
+        """
+
+        return (
+            self.settings_path.parent
+            / "logs"
+            / f"schedule-{self.account_id}.log"
+        )
 
     @property
     def program_arguments(self) -> tuple[str, ...]:
@@ -222,13 +254,11 @@ class MacOSLaunchdScheduler:
             "ProcessType": "Background",
             "LowPriorityIO": True,
             "Nice": 10,
-            "StandardOutPath": "/dev/null",
-            "StandardErrorPath": "/dev/null",
-            "EnvironmentVariables": {
-                "HF_HUB_OFFLINE": "1",
-                "TRANSFORMERS_OFFLINE": "1",
-            },
+            "StandardOutPath": str(request.log_path),
+            "StandardErrorPath": str(request.log_path),
+            "EnvironmentVariables": request.environment,
         }
+        request.log_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         _atomic_write(path, plistlib.dumps(document, sort_keys=True))
         domain = f"gui/{self.uid}"
         self.runner.run(("launchctl", "bootout", domain, str(path)))
@@ -454,8 +484,11 @@ class LinuxSystemdScheduler:
             f"Description=InboxLume one-shot scan for {request.account_id}\n\n"
             "[Service]\nType=oneshot\n"
             f"ExecStart={command}\n"
-            "Environment=HF_HUB_OFFLINE=1\n"
-            "Environment=TRANSFORMERS_OFFLINE=1\n"
+            + "".join(
+                f"Environment={name}={_systemd_quote(value)}\n"
+                for name, value in sorted(request.environment.items())
+            )
+            + 
             "NoNewPrivileges=true\nPrivateTmp=true\nPrivateDevices=true\n"
             "ProtectSystem=full\nRestrictSUIDSGID=true\nLockPersonality=true\n"
             "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6\n"
