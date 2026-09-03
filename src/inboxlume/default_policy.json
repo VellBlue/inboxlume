@@ -9,7 +9,7 @@
       "read_routine_access_alert_age_days": 90,
       "review_confidence": 0.7,
       "quarantine_confidence": 0.93,
-      "max_candidates_per_run": 500,
+      "max_candidates_per_run": 5000,
       "protect_attachments": true,
       "protected": {
         "categories": [
@@ -43,7 +43,7 @@
       "read_routine_access_alert_age_days": 90,
       "review_confidence": 0.7,
       "quarantine_confidence": 0.93,
-      "max_candidates_per_run": 500,
+      "max_candidates_per_run": 5000,
       "protect_attachments": true,
       "protected": {
         "categories": [

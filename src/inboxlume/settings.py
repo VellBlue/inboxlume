@@ -22,6 +22,10 @@ LEGACY_SETTINGS_VERSIONS = frozenset({1, 2, 3, 4, 5, 6, 7, 8})
 RECOMMENDED_INITIAL_QUIZ_ANSWERS = 40
 RECOMMENDED_INITIAL_KEEP_ANSWERS = 3
 RECOMMENDED_INITIAL_DONT_KEEP_ANSWERS = 20
+# The scan worker validates this same bound. Keeping one constant is what
+# stops a batch the settings accept from being refused by the worker at the
+# first instant of a run, which a scheduled run cannot report to anyone.
+MAX_SCAN_BATCH_SIZE = 5000
 APPLICATION_NAME = "InboxLume"
 APPLICATION_SLUG = "inboxlume"
 ENV_SETTINGS_PATH = "INBOXLUME_SETTINGS_PATH"
@@ -143,10 +147,10 @@ class AccountSettings:
             raise ValueError("i giorni delle email non lette devono essere tra 1 e 3650")
         if not 1 <= self.read_one_time_code_age_days <= 3650:
             raise ValueError("i giorni dei codici monouso devono essere tra 1 e 3650")
-        if not 0 <= self.batch_size <= 5000:
+        if not 0 <= self.batch_size <= MAX_SCAN_BATCH_SIZE:
             raise ValueError(
                 "la dimensione del lotto deve essere 0 (tutte le email idonee) "
-                "oppure tra 1 e 5000"
+                f"oppure tra 1 e {MAX_SCAN_BATCH_SIZE}"
             )
         if not 1 <= self.quiz_size <= 500:
             raise ValueError("la dimensione del quiz deve essere tra 1 e 500")

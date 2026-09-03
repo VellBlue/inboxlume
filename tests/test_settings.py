@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import tempfile
 import unittest
+from argparse import Namespace
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
@@ -474,6 +476,48 @@ class BatchSizeCeilingTests(unittest.TestCase):
                 "yahoo_test", ProviderKind.YAHOO, batch_size=self.LARGEST + 1
             )
         self.assertIn(str(self.LARGEST), str(caught.exception))
+
+    def test_the_bundled_policy_also_allows_the_largest_batch(self) -> None:
+        from inboxlume.cli import load_policies
+
+        bundled = Path("src/inboxlume/default_policy.json")
+        for account_id, policy in load_policies(self.ROOT / bundled).items():
+            with self.subTest(account=account_id):
+                # A fresh install runs on this file, not on the example config.
+                self.assertGreaterEqual(
+                    policy.max_candidates_per_run, self.LARGEST
+                )
+
+    def test_the_scan_worker_accepts_every_batch_the_settings_accept(self) -> None:
+        # The earlier version of this class compared the settings ceiling only
+        # against the policy files, and so kept passing while the worker still
+        # refused any batch above 500 at the first instant of a run. A refusal
+        # there is invisible: a scheduled run has nobody to report it to.
+        from inboxlume.desktop_worker import _execute_scan_locked
+
+        def scan_arguments(limit: int) -> Namespace:
+            return Namespace(
+                confirm_read_bodies=True,
+                apply_safe_actions=True,
+                limit=limit,
+                search_limit=limit,
+                provider=ProviderKind.YAHOO.value,
+                state_db=Path(directory) / "state.sqlite3",
+                config=Path(directory) / "absent.json",
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError) as refused:
+                _execute_scan_locked(
+                    scan_arguments(self.LARGEST + 1), io.StringIO()
+                )
+            self.assertIn(str(self.LARGEST), str(refused.exception))
+
+            # At the ceiling itself the batch check must pass. The run still
+            # fails, on the missing configuration file rather than on the size.
+            with self.assertRaises(Exception) as accepted:
+                _execute_scan_locked(scan_arguments(self.LARGEST), io.StringIO())
+            self.assertNotIn("lotto", str(accepted.exception))
 
     def test_zero_still_means_every_eligible_message(self) -> None:
         account = AccountSettings("yahoo_test", ProviderKind.YAHOO, batch_size=0)

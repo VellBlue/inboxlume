@@ -38,6 +38,7 @@ from .models import ProviderKind
 from .operation_lock import AccountOperationLock, account_operation_lock_path
 from .runtime import calibration_answer_counts, runtime_policy
 from .settings import (
+    MAX_SCAN_BATCH_SIZE,
     RECOMMENDED_INITIAL_DONT_KEEP_ANSWERS,
     RECOMMENDED_INITIAL_KEEP_ANSWERS,
     RECOMMENDED_INITIAL_QUIZ_ANSWERS,
@@ -450,9 +451,10 @@ def _execute_scan_locked(
         raise ValueError("manca la conferma locale per leggere i corpi Inbox")
     if not args.apply_safe_actions:
         raise ValueError("manca la conferma per applicare le sole azioni sicure")
-    if not 0 <= args.limit <= 500:
+    if not 0 <= args.limit <= MAX_SCAN_BATCH_SIZE:
         raise ValueError(
-            "il lotto deve essere 0 (tutte le email idonee) oppure tra 1 e 500"
+            "il lotto deve essere 0 (tutte le email idonee) "
+            f"oppure tra 1 e {MAX_SCAN_BATCH_SIZE}"
         )
     if args.limit == 0 and args.search_limit != 0:
         raise ValueError(

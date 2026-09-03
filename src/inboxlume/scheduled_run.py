@@ -142,12 +142,19 @@ def run_scheduled_scan(
     return summary
 
 
-def _write_error(stream: TextIO, code: str) -> None:
+def _write_error(stream: TextIO, code: str, failure: str) -> None:
     stream.write(
         json.dumps(
             {
                 "type": "scheduled_run_error",
                 "code": code,
+                # An exception class name is a code identifier: it cannot carry
+                # a subject line, an address or any other message content, so it
+                # is safe to log where the exception text is not. Without it the
+                # log cannot separate a setting the worker refuses from a
+                # mailbox it could not reach, and a scheduled failure has no
+                # operator watching it to tell the difference.
+                "failure": failure,
                 "message": "controllo pianificato non completato; apri InboxLume",
             },
             ensure_ascii=False,
@@ -203,13 +210,13 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout,
             arguments_sink=started.append,
         )
-    except Exception:  # noqa: BLE001 - final privacy-safe scheduler boundary
+    except Exception as error:  # noqa: BLE001 - final privacy-safe boundary
         _record_scheduled_failure(
             args.account,
             args.settings,
             started[-1] if started else None,
         )
-        _write_error(sys.stdout, "scheduled_run_failed")
+        _write_error(sys.stdout, "scheduled_run_failed", type(error).__name__)
         return 2
     return 0
 

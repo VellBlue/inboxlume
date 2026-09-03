@@ -116,6 +116,7 @@ from .threat_signals import ThreatSemanticMode
 from .settings import (
     AccountSettings,
     ApplicationSettings,
+    MAX_SCAN_BATCH_SIZE,
     MessageDestination,
     RECOMMENDED_INITIAL_DONT_KEEP_ANSWERS,
     RECOMMENDED_INITIAL_KEEP_ANSWERS,
@@ -1626,7 +1627,7 @@ class SettingsWindow(QMainWindow):
         )
         execution.setObjectName("executionCard")
         self.batch_size = QSpinBox()
-        self.batch_size.setRange(1, 5000)
+        self.batch_size.setRange(1, MAX_SCAN_BATCH_SIZE)
         self.batch_size.setSingleStep(500)
         self.batch_size.setSuffix(self._(" emails"))
         self.batch_size.setAccessibleName(self._("Maximum email per session"))

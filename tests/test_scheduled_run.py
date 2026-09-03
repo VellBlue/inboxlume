@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -233,6 +234,36 @@ class ScheduledRunTests(unittest.TestCase):
         self.assertNotIn("SYNTHETIC_PRIVATE_VALUE", output.getvalue())
         self.assertNotIn("/Users/example/private", output.getvalue())
         self.assertIn("scheduled_run_failed", output.getvalue())
+
+    def test_the_boundary_names_the_class_of_a_failure_it_will_not_quote(self):
+        class SyntheticRefusal(ValueError):
+            pass
+
+        output = io.StringIO()
+        with (
+            patch(
+                "inboxlume.scheduled_run.run_scheduled_scan",
+                side_effect=SyntheticRefusal("SYNTHETIC_PRIVATE_VALUE"),
+            ),
+            patch("inboxlume.scheduled_run._record_scheduled_failure"),
+            redirect_stdout(output),
+        ):
+            status = main(
+                [
+                    "--account",
+                    "gmail_test",
+                    "--settings",
+                    "/tmp/synthetic-settings.json",
+                ]
+            )
+
+        self.assertEqual(status, 2)
+        record = json.loads(output.getvalue().strip().splitlines()[-1])
+        # Nobody is watching a scheduled run, so the log is the only account of
+        # it. The class name separates a setting the worker refused from a
+        # mailbox it could not reach, which the shared message alone cannot.
+        self.assertEqual(record["failure"], "SyntheticRefusal")
+        self.assertNotIn("SYNTHETIC_PRIVATE_VALUE", output.getvalue())
 
 
 if __name__ == "__main__":
