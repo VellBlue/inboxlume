@@ -860,8 +860,13 @@ class GmailReadOnlyMailbox:
     ) -> tuple[int, bool]:
         """Count unique candidate IDs only; never invoke users.messages.get."""
 
-        if maximum is not None and not 1 <= maximum <= 500:
-            raise ValueError("maximum candidate count must be between 1 and 500")
+        # The count answers how much of a configured batch is still there,
+        # so it has to admit the same batch the scan will accept.
+        if maximum is not None and not 1 <= maximum <= MAX_SCAN_BATCH_SIZE:
+            raise ValueError(
+                "maximum candidate count must be between 1 and "
+                f"{MAX_SCAN_BATCH_SIZE}"
+            )
         seen: set[str] = set()
         count = 0
         for query in (

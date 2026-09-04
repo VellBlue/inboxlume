@@ -897,8 +897,13 @@ class YahooReadOnlyMailbox:
     ) -> tuple[int, bool]:
         """Count unique IMAP UIDs from SEARCH results without fetching messages."""
 
-        if maximum is not None and not 1 <= maximum <= 500:
-            raise ValueError("maximum candidate count must be between 1 and 500")
+        # The count answers how much of a configured batch is still there,
+        # so it has to admit the same batch the scan will accept.
+        if maximum is not None and not 1 <= maximum <= MAX_SCAN_BATCH_SIZE:
+            raise ValueError(
+                "maximum candidate count must be between 1 and "
+                f"{MAX_SCAN_BATCH_SIZE}"
+            )
         searches = [
             self._search_tolerant("UNSEEN", "BEFORE", self._date(unread_before)),
         ]

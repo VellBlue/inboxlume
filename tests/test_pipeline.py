@@ -872,6 +872,27 @@ class DryRunPipelineTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     next(refused)
 
+                # The duration estimate counts how much of a configured batch
+                # is still waiting, so a batch it refuses to count leaves the
+                # estimate broken for exactly the batches worth estimating.
+                counter = object.__new__(mailbox_class)
+                with self.assertRaises(AttributeError):
+                    counter.count_inbox_unprocessed_candidate_ids(
+                        NOW,
+                        NOW,
+                        NOW,
+                        lambda message_id: False,
+                        maximum=MAX_SCAN_BATCH_SIZE,
+                    )
+                with self.assertRaises(ValueError):
+                    counter.count_inbox_unprocessed_candidate_ids(
+                        NOW,
+                        NOW,
+                        NOW,
+                        lambda message_id: False,
+                        maximum=MAX_SCAN_BATCH_SIZE + 1,
+                    )
+
     def test_automatic_selector_needs_no_quiz_but_respects_protect(self) -> None:
         automatic = make_message(message_id="automatic")
         protected = make_message(message_id="protected-automatic")
