@@ -202,25 +202,37 @@ class NativeSchedulerTests(unittest.TestCase):
 class ScheduledJobIndependenceTests(unittest.TestCase):
     """A scheduled job must start without the interactive launcher's repairs."""
 
+    # A leading slash is not an absolute path on Windows, where a path needs a
+    # drive, so a literal like "/users/example" builds a request the scheduler
+    # rightly refuses. The temporary directory is absolute on every platform.
+    HOME = Path(tempfile.gettempdir()).resolve() / "inboxlume-schedule-fixture"
+    SOURCE_ROOT = HOME / "project" / "src"
+
     def _request(self, **overrides):
         from inboxlume.native_scheduler import ScheduleRequest
         from inboxlume.settings import ScheduleSettings
 
         arguments = {
             "account_id": "yahoo_test",
-            "settings_path": Path("/users/example/Library/settings.json"),
-            "python_executable": Path("/users/example/.venv/bin/python"),
+            "settings_path": self.HOME / "Library" / "settings.json",
+            "python_executable": self.HOME / ".venv" / "bin" / "python",
             "schedule": ScheduleSettings(enabled=True, hour=6),
-            "source_root": Path("/users/example/project/src"),
+            "source_root": self.SOURCE_ROOT,
         }
         arguments.update(overrides)
         return ScheduleRequest(**arguments)
+
+    def test_the_fixture_is_absolute_on_the_platform_running_it(self) -> None:
+        # The scheduler refuses a relative settings path, so a fixture that is
+        # absolute only on Unix turns three tests red on Windows alone.
+        self.assertTrue(self.HOME.is_absolute())
+        self.assertTrue(self.SOURCE_ROOT.is_absolute())
 
     def test_a_checkout_job_names_its_own_source_root(self) -> None:
         # A .pth file can be hidden by a syncing folder, and Python then
         # ignores it, so the job must not depend on it.
         environment = self._request().environment
-        self.assertEqual(environment["PYTHONPATH"], "/users/example/project/src")
+        self.assertEqual(environment["PYTHONPATH"], str(self.SOURCE_ROOT))
 
     def test_a_packaged_job_never_receives_a_source_root(self) -> None:
         environment = self._request(packaged_worker=True).environment
