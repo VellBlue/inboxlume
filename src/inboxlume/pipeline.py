@@ -22,6 +22,7 @@ from .providers.gmail_finalizer import (
 )
 from .proof_of_obsolescence import has_hard_policy_reason
 from .quiz import QuizCandidate, QuizSelector
+from .settings import MAX_RECOVERY_SEARCH_LIMIT, MAX_SCAN_BATCH_SIZE
 
 
 _CLEANUP_REVIEW_CATEGORIES = frozenset(
@@ -678,7 +679,10 @@ def prepare_automatic_quarantine_candidates(
 
     if now.tzinfo is None:
         raise ValueError("now deve includere il fuso orario")
-    if not 1 <= limit <= 500 or not limit <= search_limit <= 1000:
+    if (
+        not 1 <= limit <= MAX_SCAN_BATCH_SIZE
+        or not limit <= search_limit <= MAX_RECOVERY_SEARCH_LIMIT
+    ):
         raise ValueError("limiti quarantena automatica non validi")
     if not scan_profile.strip() or len(scan_profile) > 100:
         raise ValueError("scan_profile non valido")

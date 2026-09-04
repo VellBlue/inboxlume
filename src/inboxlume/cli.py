@@ -1282,7 +1282,9 @@ def gmail_shadow_run(
                     preferences,
                     now,
                     remaining,
-                    1000,
+                    # The window has to hold the batch being asked for; the
+                    # floor keeps the old behaviour for ordinary batches.
+                    max(1000, 2 * remaining),
                     scan_profile,
                     allowed_categories=allowed_categories,
                     include_verified_obsolescence=(
@@ -1683,7 +1685,9 @@ def yahoo_shadow_run(
                     preferences,
                     now,
                     remaining,
-                    1000,
+                    # The window has to hold the batch being asked for; the
+                    # floor keeps the old behaviour for ordinary batches.
+                    max(1000, 2 * remaining),
                     scan_profile,
                     allowed_categories=allowed_categories,
                     include_verified_obsolescence=(

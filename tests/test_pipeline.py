@@ -812,6 +812,66 @@ class DryRunPipelineTests(unittest.TestCase):
         )
         self.assertEqual(selected_after_execution, [])
 
+    def test_the_whole_batch_path_accepts_the_largest_saveable_batch(self) -> None:
+        """Every bound a scan batch passes through has to admit the ceiling.
+
+        The batch ceiling was raised in the settings, the policy files and the
+        GUI, but four validations below them kept their own literal 500. A
+        scheduled run then died partway through, after reading hundreds of
+        messages and before changing anything, which is the most expensive
+        place to fail and the least visible.
+        """
+
+        from inboxlume.providers.gmail import GmailReadOnlyMailbox
+        from inboxlume.providers.yahoo import YahooReadOnlyMailbox
+        from inboxlume.settings import (
+            MAX_RECOVERY_SEARCH_LIMIT,
+            MAX_SCAN_BATCH_SIZE,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = PreferenceStore(Path(directory) / "ceiling.sqlite3", b"c" * 32)
+            self.assertEqual(
+                prepare_automatic_quarantine_candidates(
+                    self.policy,
+                    ProgressiveFakeMailbox([]),
+                    store,
+                    NOW,
+                    limit=MAX_SCAN_BATCH_SIZE,
+                    search_limit=MAX_RECOVERY_SEARCH_LIMIT,
+                    scan_profile="gemma26-policy-v2",
+                ),
+                [],
+            )
+
+        # The provider selection is the layer under it. Validation runs before
+        # the transport is touched, so an unconstructed mailbox reaches it: at
+        # the ceiling the size check has to pass and let the call fail on the
+        # missing transport instead.
+        for mailbox_class in (YahooReadOnlyMailbox, GmailReadOnlyMailbox):
+            with self.subTest(provider=mailbox_class.__name__):
+                selection = object.__new__(mailbox_class).iter_inbox_matching_candidate_ids(
+                    NOW,
+                    NOW,
+                    NOW,
+                    MAX_SCAN_BATCH_SIZE,
+                    MAX_RECOVERY_SEARCH_LIMIT,
+                    lambda message_id, unread: True,
+                )
+                with self.assertRaises(AttributeError):
+                    next(selection)
+
+                refused = object.__new__(mailbox_class).iter_inbox_matching_candidate_ids(
+                    NOW,
+                    NOW,
+                    NOW,
+                    MAX_SCAN_BATCH_SIZE + 1,
+                    MAX_RECOVERY_SEARCH_LIMIT,
+                    lambda message_id, unread: True,
+                )
+                with self.assertRaises(ValueError):
+                    next(refused)
+
     def test_automatic_selector_needs_no_quiz_but_respects_protect(self) -> None:
         automatic = make_message(message_id="automatic")
         protected = make_message(message_id="protected-automatic")

@@ -26,6 +26,10 @@ RECOMMENDED_INITIAL_DONT_KEEP_ANSWERS = 20
 # stops a batch the settings accept from being refused by the worker at the
 # first instant of a run, which a scheduled run cannot report to anyone.
 MAX_SCAN_BATCH_SIZE = 5000
+# The recovery pass walks message ids looking for pending proposals, so its
+# own ceiling has to stay above the batch it is asked to fill. Leaving it
+# below makes a large batch impossible to satisfy rather than merely slow.
+MAX_RECOVERY_SEARCH_LIMIT = 2 * MAX_SCAN_BATCH_SIZE
 APPLICATION_NAME = "InboxLume"
 APPLICATION_SLUG = "inboxlume"
 ENV_SETTINGS_PATH = "INBOXLUME_SETTINGS_PATH"

@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
 from ..models import EmailRecord, ProviderKind
+from ..settings import MAX_RECOVERY_SEARCH_LIMIT, MAX_SCAN_BATCH_SIZE
 from ..sanitizer import html_to_visible_text, normalize_plain_text
 from ..tls_trust import https_handler
 from .contracts import GMAIL_READONLY_SCOPE, READ_ONLY_CAPABILITIES, ReadOnlyCapability
@@ -823,7 +824,13 @@ class GmailReadOnlyMailbox:
     ) -> Iterator[str]:
         """Restituisce solo ID Inbox approvati dal callback, senza leggere corpi."""
 
-        if not 1 <= limit <= 500 or not limit <= search_limit <= 1000:
+        # This selection feeds the scan batch, so it scales with the
+        # batch ceiling. The review readers below keep their own,
+        # smaller bounds: a review is not sized by the scan.
+        if (
+            not 1 <= limit <= MAX_SCAN_BATCH_SIZE
+            or not limit <= search_limit <= MAX_RECOVERY_SEARCH_LIMIT
+        ):
             raise ValueError("limiti selezione operativa non validi")
         yielded = 0
         seen: set[str] = set()

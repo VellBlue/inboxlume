@@ -13,6 +13,7 @@ from email.message import Message
 from typing import Callable, Protocol
 
 from ..models import EmailRecord, ProviderKind
+from ..settings import MAX_RECOVERY_SEARCH_LIMIT, MAX_SCAN_BATCH_SIZE
 from ..tls_trust import default_tls_context
 from ..sanitizer import normalize_plain_text, sanitize_body
 from .contracts import (
@@ -844,7 +845,13 @@ class YahooReadOnlyMailbox:
         search_limit: int,
         include_message_id: Callable[[str, bool], bool],
     ) -> Iterator[str]:
-        if not 1 <= limit <= 500 or not limit <= search_limit <= 1000:
+        # This selection feeds the scan batch, so it scales with the
+        # batch ceiling. The review readers below keep their own,
+        # smaller bounds: a review is not sized by the scan.
+        if (
+            not 1 <= limit <= MAX_SCAN_BATCH_SIZE
+            or not limit <= search_limit <= MAX_RECOVERY_SEARCH_LIMIT
+        ):
             raise ValueError("limiti selezione Yahoo non validi")
         seen: set[str] = set()
         yielded = 0
