@@ -585,6 +585,41 @@ class ScheduledRunVisibilityTests(unittest.TestCase):
 
 
 @unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
+class LedgerScopeTests(unittest.TestCase):
+    """The panels report recorded work, so the account decides what they read."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_the_panel_reads_the_account_model_not_the_form(self) -> None:
+        from inboxlume.desktop_app import SettingsWindow
+        from inboxlume.local_models import LocalModelProfile
+        from inboxlume.settings import AccountSettings
+
+        window = SettingsWindow()
+        account = AccountSettings(
+            "yahoo_test",
+            ProviderKind.YAHOO,
+            model_profile=LocalModelProfile.GEMMA26,
+        )
+        chosen = window.model_profile.findData(LocalModelProfile.GEMMA12)
+        self.assertGreaterEqual(chosen, 0)
+        window.model_profile.setCurrentIndex(chosen)
+
+        # A scheduled run uses the saved model, so its work is filed under that
+        # one. Reading the ledger through the form showed empty counters with
+        # nothing on screen to say the work was filed elsewhere.
+        self.assertEqual(
+            window._recorded_scan_profile(account), "gemma26-policy-v2"
+        )
+        self.assertEqual(
+            window._selected_model_profile(), LocalModelProfile.GEMMA12
+        )
+
+
+@unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
 class BrandMarkTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

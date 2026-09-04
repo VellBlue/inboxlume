@@ -1928,6 +1928,18 @@ class SettingsWindow(QMainWindow):
             minimum=DEFAULT_MINIMUM_CONCLUSIVE_REVIEWS,
         ))
 
+    def _recorded_scan_profile(self, account: AccountSettings) -> str:
+        """Name the model whose work this account's ledger actually holds.
+
+        These panels report what has already been done, and a scheduled run
+        always uses the model saved on the account. Reading them through the
+        model picked in the form made saved work invisible whenever the form
+        showed something else, with nothing on screen to explain the zeroes.
+        The form still chooses what the next scan will run.
+        """
+
+        return scan_profile_for_model(account.model_profile)
+
     def _ledger_state(self) -> tuple[str, int, int] | None:
         if self.current_account_id is None:
             return None
@@ -1976,7 +1988,7 @@ class SettingsWindow(QMainWindow):
                 self._state_db(account),
                 account.account_id,
                 self.auth_service.store,
-                scan_profile_for_model(self._selected_model_profile()),
+                self._recorded_scan_profile(account),
             )
         except (OSError, RuntimeError, ValueError):
             self._set_operational_status_empty(
@@ -2593,7 +2605,7 @@ class SettingsWindow(QMainWindow):
             self._refresh_destination_notice()
             return
         account = self.settings.account(self.current_account_id)
-        scan_profile = scan_profile_for_model(self._selected_model_profile())
+        scan_profile = self._recorded_scan_profile(account)
         try:
             report = local_safety_governor_report(
                 self._state_db(account),
@@ -2785,7 +2797,7 @@ class SettingsWindow(QMainWindow):
         ):
             return
         account = self.settings.account(self.current_account_id)
-        profile = scan_profile_for_model(self._selected_model_profile())
+        profile = self._recorded_scan_profile(account)
         self.backtest_button.setEnabled(False)
         try:
             report = local_versioned_safety_backtest(
@@ -2880,13 +2892,13 @@ class SettingsWindow(QMainWindow):
                 self._state_db(account),
                 account.account_id,
                 self.auth_service.store,
-                scan_profile_for_model(self._selected_model_profile()),
+                self._recorded_scan_profile(account),
             )
             proof = local_obsolescence_proof_summary(
                 self._state_db(account),
                 account.account_id,
                 self.auth_service.store,
-                scan_profile_for_model(self._selected_model_profile()),
+                self._recorded_scan_profile(account),
             )
         except (OSError, RuntimeError, ValueError):
             self.lumegraph_status.setObjectName("fieldHint")
@@ -2937,7 +2949,7 @@ class SettingsWindow(QMainWindow):
                 self._state_db(account),
                 account.account_id,
                 self.auth_service.store,
-                scan_profile_for_model(self._selected_model_profile()),
+                self._recorded_scan_profile(account),
             )
         except (OSError, RuntimeError, ValueError):
             self.threat_status.setObjectName("fieldHint")
