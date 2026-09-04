@@ -585,6 +585,82 @@ class ScheduledRunVisibilityTests(unittest.TestCase):
 
 
 @unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
+class ScheduledAccountSaveTests(unittest.TestCase):
+    """A schedule must not become a wall around every other operation."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        cls.app = QApplication.instance() or QApplication([])
+
+    def _window_with_a_changed_scheduled_account(self, directory: str):
+        from dataclasses import replace
+
+        from inboxlume.desktop_app import SettingsWindow
+        from inboxlume.settings import (
+            AccountSettings,
+            ApplicationSettings,
+            ScheduleSettings,
+            SettingsStore,
+        )
+
+        path = Path(directory) / "settings.json"
+        scheduled = AccountSettings(
+            "yahoo_test",
+            ProviderKind.YAHOO,
+            batch_size=500,
+            schedule=ScheduleSettings(enabled=True, hour=6, minute=30),
+        )
+        SettingsStore(path).save(ApplicationSettings((scheduled,)))
+
+        with patch.dict(os.environ, {"INBOXLUME_SETTINGS_PATH": str(path)}):
+            window = SettingsWindow()
+        # Skipping the form keeps the difference under test explicit: the batch
+        # this scan wants is not the batch the unattended run was set up with.
+        window.current_account_id = None
+        window.settings = ApplicationSettings(
+            (replace(scheduled, batch_size=2000),)
+        )
+        return window, path
+
+    def test_saving_over_a_schedule_is_a_choice_and_not_a_dead_end(self) -> None:
+        from inboxlume.settings import SettingsStore
+
+        with tempfile.TemporaryDirectory() as directory:
+            window, path = self._window_with_a_changed_scheduled_account(directory)
+            with patch.object(
+                QMessageBox,
+                "question",
+                return_value=QMessageBox.StandardButton.Save,
+            ):
+                saved = window.save()
+
+            # Refusing outright left no way to run one manual scan with other
+            # settings: the scan saves first and stopped here without a word.
+            self.assertTrue(saved)
+            self.assertEqual(
+                SettingsStore(path).load().account("yahoo_test").batch_size, 2000
+            )
+
+    def test_declining_leaves_the_unattended_run_exactly_as_it_was(self) -> None:
+        from inboxlume.settings import SettingsStore
+
+        with tempfile.TemporaryDirectory() as directory:
+            window, path = self._window_with_a_changed_scheduled_account(directory)
+            with patch.object(
+                QMessageBox,
+                "question",
+                return_value=QMessageBox.StandardButton.Cancel,
+            ):
+                saved = window.save()
+
+            self.assertFalse(saved)
+            self.assertEqual(
+                SettingsStore(path).load().account("yahoo_test").batch_size, 500
+            )
+
+
+@unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
 class LedgerScopeTests(unittest.TestCase):
     """The panels report recorded work, so the account decides what they read."""
 

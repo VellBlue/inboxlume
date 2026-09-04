@@ -4891,15 +4891,24 @@ class SettingsWindow(QMainWindow):
                         candidate.display_name or candidate.account_id
                     )
             if changed_scheduled_accounts:
-                QMessageBox.information(
+                # Refusing outright left no way to run one manual scan with
+                # different settings while a schedule existed: the scan saves
+                # first, so it stopped here and returned without a word about
+                # the scan. The unattended run still deserves an explicit
+                # consent, so this asks rather than blocks.
+                answer = QMessageBox.question(
                     self,
                     self._("Update the schedule too"),
                     self._(
-                        "These changes affect an existing scheduled scan: {accounts}. Use Apply / update under Schedule so InboxLume can show the destination and limits again before saving.",
+                        "These changes affect an existing scheduled scan: {accounts}. Saving applies them to its next unattended run as well. Use Apply / update under Schedule to review destination and limits first.",
                         accounts=", ".join(changed_scheduled_accounts),
                     ),
+                    QMessageBox.StandardButton.Cancel
+                    | QMessageBox.StandardButton.Save,
+                    QMessageBox.StandardButton.Cancel,
                 )
-                return False
+                if answer != QMessageBox.StandardButton.Save:
+                    return False
             self.store.save(self.settings)
         except (KeyError, OSError, ValueError) as exc:
             QMessageBox.critical(
