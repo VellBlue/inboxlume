@@ -5,6 +5,7 @@ import io
 import json
 import sys
 from argparse import Namespace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, TextIO
 
@@ -142,6 +143,25 @@ def run_scheduled_scan(
     return summary
 
 
+def _write_started(stream: TextIO) -> None:
+    # Without this the log holds a single line written when the run ends, and
+    # its timestamp reads like a start time. A run that worked for over an hour
+    # and then failed is indistinguishable from one that began late, which sent
+    # a real investigation looking at the wrong thing.
+    stream.write(
+        json.dumps(
+            {
+                "type": "scheduled_run_started",
+                "started_at": datetime.now(timezone.utc).isoformat(),
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        + "\n"
+    )
+    stream.flush()
+
+
 def _write_error(stream: TextIO, code: str, failure: str) -> None:
     stream.write(
         json.dumps(
@@ -202,6 +222,7 @@ def _record_scheduled_failure(
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    _write_started(sys.stdout)
     started: list[Namespace] = []
     try:
         run_scheduled_scan(

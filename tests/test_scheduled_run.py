@@ -235,6 +235,33 @@ class ScheduledRunTests(unittest.TestCase):
         self.assertNotIn("/Users/example/private", output.getvalue())
         self.assertIn("scheduled_run_failed", output.getvalue())
 
+    def test_the_log_says_when_a_run_began_and_not_only_when_it_ended(self):
+        output = io.StringIO()
+        with (
+            patch(
+                "inboxlume.scheduled_run.run_scheduled_scan",
+                side_effect=RuntimeError("synthetic"),
+            ),
+            patch("inboxlume.scheduled_run._record_scheduled_failure"),
+            redirect_stdout(output),
+        ):
+            main(
+                [
+                    "--account",
+                    "gmail_test",
+                    "--settings",
+                    "/tmp/synthetic-settings.json",
+                ]
+            )
+
+        first, last = output.getvalue().strip().splitlines()
+        # One line written at the end carries a timestamp that reads like a
+        # start time, and a long run that fails late then looks like a run that
+        # began late. Both ends have to be on the record.
+        self.assertEqual(json.loads(first)["type"], "scheduled_run_started")
+        self.assertIn("started_at", json.loads(first))
+        self.assertEqual(json.loads(last)["type"], "scheduled_run_error")
+
     def test_the_boundary_names_the_class_of_a_failure_it_will_not_quote(self):
         class SyntheticRefusal(ValueError):
             pass
