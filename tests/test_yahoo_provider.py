@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import imaplib
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-from inboxlume.models import ProviderKind
+from inboxlume.models import EmailRecord, ProviderKind
 from inboxlume.providers.yahoo import (
     _ACCESS_TERMS,
     DirectYahooImapReadTransport,
@@ -149,6 +149,84 @@ class FakeMoveClient:
     def logout(self):  # noqa: ANN001
         self.calls.append(("logout",))
         return "BYE", [b"bye"]
+
+
+class OrderingTransport:
+    """A read transport that answers with a whole Inbox, newest UID first."""
+
+    uid_validity = "777"
+
+    def __init__(self, uids: list[str]) -> None:
+        # Yahoo hands back descending UIDs, so the newest message is first and
+        # any window taken off the front is a window of the newest mail.
+        self.uids = sorted(uids, key=int, reverse=True)
+
+    def search(self, *criteria: str) -> list[str]:
+        return list(self.uids) if "UNSEEN" in criteria else []
+
+    def fetch_message(self, uid: str, account_id: str) -> EmailRecord:
+        return EmailRecord(
+            account_id=account_id,
+            provider=ProviderKind.YAHOO,
+            message_id=f"yahoo-777-{uid}",
+            received_at=datetime(2020, 1, 1, tzinfo=timezone.utc)
+            + timedelta(days=int(uid)),
+            unread=True,
+            sender="sender@example.com",
+        )
+
+    def fetch_message_identity(self, uid: str) -> str | None:
+        return f"<{uid}@example.com>"
+
+    def inbox_count(self) -> int:
+        return len(self.uids)
+
+    def close(self) -> None:
+        return None
+
+
+class ScanOrderTests(unittest.TestCase):
+    """The processing order has to choose the messages, not just sort them."""
+
+    CUTOFF = datetime(2030, 1, 1, tzinfo=timezone.utc)
+
+    def _uids(self, *, oldest_first: bool, limit: int, search_limit: int) -> list[str]:
+        mailbox = YahooReadOnlyMailbox(
+            "yahoo_personale", OrderingTransport([str(n) for n in range(1, 21)])
+        )
+        return [
+            record.message_id.rsplit("-", 1)[1]
+            for record in mailbox.iter_inbox_unread_before(
+                self.CUTOFF,
+                limit,
+                search_limit=search_limit,
+                oldest_first=oldest_first,
+            )
+        ]
+
+    def test_newest_first_takes_the_highest_uids(self) -> None:
+        self.assertEqual(
+            self._uids(oldest_first=False, limit=5, search_limit=0),
+            ["20", "19", "18", "17", "16"],
+        )
+
+    def test_oldest_first_reaches_the_genuinely_oldest_mail(self) -> None:
+        # The scan and the schedule both pass search_limit 0, so the window is
+        # the whole Inbox and this is the order the option promises.
+        self.assertEqual(
+            self._uids(oldest_first=True, limit=5, search_limit=0),
+            ["1", "2", "3", "4", "5"],
+        )
+
+    def test_a_finite_window_would_only_sort_the_newest_mail(self) -> None:
+        # Documented, not endorsed: a caller that bounds the search window gets
+        # the oldest of the newest, because the window is cut before the sort.
+        # Every caller in the app passes 0; this records what the other choice
+        # would mean before somebody makes it by accident.
+        self.assertEqual(
+            self._uids(oldest_first=True, limit=3, search_limit=5),
+            ["16", "17", "18"],
+        )
 
 
 class YahooProviderTests(unittest.TestCase):
