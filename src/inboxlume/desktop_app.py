@@ -88,6 +88,7 @@ from .process_launch import (
     scheduled_worker_launch,
     terminate_process_tree,
 )
+from .diagnostics import diagnostic_path
 from .runtime import (
     calibration_answer_counts,
     default_runtime_config_path,
@@ -1056,6 +1057,15 @@ class SettingsWindow(QMainWindow):
         self._tasks: set[BackgroundTask] = set()
         self._process: QProcess | None = None
         self._process_buffer = ""
+        # A scheduled run happens in its own process, so nothing in this window
+        # is told when it finishes. The diagnostic ledger gains exactly one line
+        # when a run reaches a terminal status, so watching it reacts to a run
+        # that ended rather than to the writes made while one is going on.
+        self._ledger_signature: tuple[str, int, int] | None = None
+        self._ledger_watch = QTimer(self)
+        self._ledger_watch.setInterval(15_000)
+        self._ledger_watch.timeout.connect(self._poll_finished_background_run)
+        self._ledger_watch.start()
         self._operation: str | None = None
         self._terminal_event_received = False
         self._quiz_dialog: QuizDialog | None = None
@@ -1918,9 +1928,39 @@ class SettingsWindow(QMainWindow):
             minimum=DEFAULT_MINIMUM_CONCLUSIVE_REVIEWS,
         ))
 
+    def _ledger_state(self) -> tuple[str, int, int] | None:
+        if self.current_account_id is None:
+            return None
+        try:
+            account = self.settings.account(self.current_account_id)
+            ledger = diagnostic_path(self._state_db(account))
+            recorded = ledger.stat()
+        except (KeyError, OSError, ValueError):
+            return None
+        return (str(ledger), recorded.st_size, recorded.st_mtime_ns)
+
+    def _poll_finished_background_run(self) -> None:
+        """Show what a run in another process recorded, without a restart."""
+
+        if self._process is not None:
+            # A run of our own reports through its own events and refreshes the
+            # panel when it ends; reading the ledger underneath it would only
+            # show a half-written picture.
+            return
+        signature = self._ledger_state()
+        if signature is None or signature == self._ledger_signature:
+            return
+        known = self._ledger_signature
+        self._ledger_signature = signature
+        if known is not None:
+            self._refresh_operational_status()
+
     def _refresh_operational_status(self) -> None:
         if not hasattr(self, "operational_status_card"):
             return
+        # Any refresh becomes the baseline, so the watcher reacts to the next
+        # run instead of repeating what is already on screen.
+        self._ledger_signature = self._ledger_state()
         if (
             self.current_account_id is None
             or self.auth_service is None

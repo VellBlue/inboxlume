@@ -514,6 +514,77 @@ class BatchSelectionTests(unittest.TestCase):
 
 
 @unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
+class ScheduledRunVisibilityTests(unittest.TestCase):
+    """A run in another process has to reach the panel without a restart."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        cls.app = QApplication.instance() or QApplication([])
+
+    def _window_watching(self, ledger: Path):
+        from inboxlume.desktop_app import SettingsWindow
+
+        window = SettingsWindow()
+        window.refreshes = []
+        window._ledger_state = lambda: (
+            (str(ledger), ledger.stat().st_size, ledger.stat().st_mtime_ns)
+            if ledger.exists()
+            else None
+        )
+        window._refresh_operational_status = lambda: window.refreshes.append(True)
+        # Building the window reads this account's real ledger, so the baseline
+        # has to be cleared before the watcher is pointed at the fixture.
+        window._ledger_signature = None
+        return window
+
+    def test_a_finished_scheduled_run_refreshes_the_panel(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = Path(directory) / "run.diagnostics.jsonl"
+            ledger.write_text('{"status":"completed"}\n')
+            window = self._window_watching(ledger)
+
+            # The first look only establishes what is already on screen.
+            window._poll_finished_background_run()
+            self.assertEqual(window.refreshes, [])
+
+            # A scheduled run ends and appends its record.
+            with ledger.open("a") as handle:
+                handle.write('{"status":"completed","trigger":"scheduled"}\n')
+            window._poll_finished_background_run()
+            self.assertEqual(len(window.refreshes), 1)
+
+            # Nothing further happened, so nothing is redrawn.
+            window._poll_finished_background_run()
+            self.assertEqual(len(window.refreshes), 1)
+
+    def test_the_watcher_is_running_without_anyone_asking_for_it(self) -> None:
+        from inboxlume.desktop_app import SettingsWindow
+
+        # The panel used to change only on a GUI event, so a scheduled run was
+        # invisible until the app was closed and reopened.
+        window = SettingsWindow()
+        self.assertTrue(window._ledger_watch.isActive())
+        self.assertGreater(window._ledger_watch.interval(), 0)
+
+    def test_a_run_of_our_own_is_left_to_report_itself(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = Path(directory) / "run.diagnostics.jsonl"
+            ledger.write_text("{}\n")
+            window = self._window_watching(ledger)
+            window._poll_finished_background_run()
+
+            window._process = object()
+            with ledger.open("a") as handle:
+                handle.write('{"status":"completed"}\n')
+            window._poll_finished_background_run()
+
+            # Reading the ledger under a running scan would show a half-written
+            # picture, and that scan refreshes the panel itself when it ends.
+            self.assertEqual(window.refreshes, [])
+
+
+@unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
 class BrandMarkTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
