@@ -631,6 +631,7 @@ class YahooReadOnlyMailbox:
         limit: int,
         require_unread: bool | None,
         skip_message_id: Callable[[str], bool] | None = None,
+        received_before: datetime | None = None,
     ) -> Iterator[EmailRecord]:
         yielded = 0
         for uid in uids:
@@ -649,10 +650,31 @@ class YahooReadOnlyMailbox:
                 require_unread is not None and message.unread is not require_unread
             ):
                 continue
+            if received_before is not None and message.received_at >= received_before:
+                # The age is checked here, on a message already fetched, rather
+                # than asked of SEARCH. See _unread_uids for why the server's
+                # answer cannot be trusted on this mailbox.
+                continue
             yield message
             yielded += 1
             if yielded >= limit:
                 return
+
+    def _unread_uids(self) -> list[str]:
+        """List unread mail without a date term, then judge the age locally.
+
+        Yahoo answers SEARCH BEFORE inconsistently on a large mailbox. Measured
+        on a real Inbox of 10000 messages: UNSEEN alone returned 9419 uids,
+        while UNSEEN BEFORE yesterday returned 904 and UNSEEN BEFORE thirty
+        days ago returned 941. The second is a subset of the first by
+        definition, yet 709 of its uids were absent from it, and together the
+        two named under a fifth of the unread mail. A scan built on those
+        answers sees a small and shifting slice of what it was asked to check.
+
+        UNSEEN without a date is consistent, so the age belongs to the reader.
+        """
+
+        return self._search_tolerant("UNSEEN")
 
     def iter_inbox_unread_before(
         self,
@@ -662,12 +684,11 @@ class YahooReadOnlyMailbox:
         search_limit: int | None = None,
         oldest_first: bool = False,
     ) -> Iterator[EmailRecord]:
-        uids = self._search_tolerant("UNSEEN", "BEFORE", self._date(before))
-        selected = self._search_slice(uids, search_limit)
+        selected = self._search_slice(self._unread_uids(), search_limit)
         if oldest_first:
             selected = list(reversed(selected))
         yield from self._iter(
-            selected, limit, True, skip_message_id
+            selected, limit, True, skip_message_id, received_before=before
         )
 
     def iter_inbox_read_one_time_code_candidates_before(
@@ -904,9 +925,11 @@ class YahooReadOnlyMailbox:
                 "maximum candidate count must be between 1 and "
                 f"{MAX_SCAN_BATCH_SIZE}"
             )
-        searches = [
-            self._search_tolerant("UNSEEN", "BEFORE", self._date(unread_before)),
-        ]
+        # The scan judges unread age locally now, so counting through the
+        # server's date term would report a fraction of what the scan will
+        # actually reach. This counts the same pool the scan will walk; the
+        # last day's arrivals are included and then skipped when read.
+        searches = [self._unread_uids()]
         otp: set[str] = set()
         for term in _OTP_TERMS:
             otp.update(

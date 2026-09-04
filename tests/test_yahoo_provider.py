@@ -151,6 +151,9 @@ class FakeMoveClient:
         return "BYE", [b"bye"]
 
 
+NOW = datetime(2026, 9, 4, 12, 0, tzinfo=timezone.utc)
+
+
 class OrderingTransport:
     """A read transport that answers with a whole Inbox, newest UID first."""
 
@@ -183,6 +186,87 @@ class OrderingTransport:
 
     def close(self) -> None:
         return None
+
+
+class BrokenDateSearchTransport:
+    """A server whose SEARCH BEFORE answers are partial and inconsistent.
+
+    Modelled on a real Yahoo Inbox: UNSEEN alone listed 9419 uids, while two
+    nested BEFORE windows returned 904 and 941, overlapping rather than
+    nesting, and together naming under a fifth of the unread mail.
+    """
+
+    uid_validity = "777"
+
+    def __init__(self, ages_in_days: dict[str, int]) -> None:
+        self.ages = ages_in_days
+        self.date_terms_answered = 0
+
+    def search(self, *criteria: str) -> list[str]:
+        if "UNSEEN" not in criteria:
+            return []
+        if "BEFORE" in criteria:
+            self.date_terms_answered += 1
+            # One arbitrary uid, as the real server does: neither complete nor
+            # consistent between two calls.
+            return ["3"]
+        return sorted(self.ages, key=int, reverse=True)
+
+    def fetch_message(self, uid: str, account_id: str) -> EmailRecord:
+        return EmailRecord(
+            account_id=account_id,
+            provider=ProviderKind.YAHOO,
+            message_id=f"yahoo-777-{uid}",
+            received_at=NOW - timedelta(days=self.ages[uid]),
+            unread=True,
+            sender="sender@example.com",
+        )
+
+    def fetch_message_identity(self, uid: str) -> str | None:
+        return f"<{uid}@example.com>"
+
+    def inbox_count(self) -> int:
+        return len(self.ages)
+
+    def close(self) -> None:
+        return None
+
+
+class UnreadAgeTests(unittest.TestCase):
+    """The age of a message is decided here, not by the server's SEARCH."""
+
+    def _uids_read(self, ages: dict[str, int], cutoff_days: int) -> list[str]:
+        transport = BrokenDateSearchTransport(ages)
+        mailbox = YahooReadOnlyMailbox("yahoo_personale", transport)
+        read = [
+            record.message_id.rsplit("-", 1)[1]
+            for record in mailbox.iter_inbox_unread_before(
+                NOW - timedelta(days=cutoff_days),
+                limit=100,
+                search_limit=0,
+                oldest_first=True,
+            )
+        ]
+        return read
+
+    def test_old_mail_is_reached_even_when_the_server_hides_it(self) -> None:
+        ages = {"1": 40, "2": 30, "3": 20, "4": 10, "5": 0}
+        # The server would have named only uid 3 for this window.
+        self.assertEqual(self._uids_read(ages, cutoff_days=1), ["1", "2", "3", "4"])
+
+    def test_recent_mail_is_still_left_alone(self) -> None:
+        ages = {"1": 40, "2": 2, "3": 0}
+        self.assertEqual(self._uids_read(ages, cutoff_days=5), ["1"])
+
+    def test_the_unreliable_date_term_is_no_longer_asked(self) -> None:
+        transport = BrokenDateSearchTransport({"1": 40, "2": 0})
+        mailbox = YahooReadOnlyMailbox("yahoo_personale", transport)
+        list(
+            mailbox.iter_inbox_unread_before(
+                NOW - timedelta(days=1), limit=10, search_limit=0
+            )
+        )
+        self.assertEqual(transport.date_terms_answered, 0)
 
 
 class ScanOrderTests(unittest.TestCase):
