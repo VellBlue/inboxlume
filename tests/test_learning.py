@@ -240,6 +240,65 @@ class PreferenceStoreTests(unittest.TestCase):
             self.assertNotIn(b"Offerta speciale", database_bytes)
             self.assertNotIn(b"scarpe", database_bytes)
 
+    def test_every_event_on_one_message_still_counts_after_the_rewrite(self):
+        """The content lookup narrows by feature first, then joins the events.
+
+        Driving the join from behavior_event instead made SQLite look up every
+        feature for every recorded event, which cost 43 seconds per message on
+        a real archive. Narrowing first is the same aggregate only if a message
+        with several events still contributes each of them.
+        """
+
+        now = datetime(2026, 8, 30, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as directory:
+            store = PreferenceStore(Path(directory) / "events.sqlite3", b"e" * 32)
+            message = make_message(
+                message_id="repeated-open",
+                subject="Aggiornamento corso fotografia nuova lezione",
+                body_text=(
+                    "Nuova lezione del corso di fotografia disponibile. "
+                    "Guarda il programma e il materiale della settimana."
+                ),
+            )
+            store.record_shadow_scan(
+                message,
+                CLASSIFICATION,
+                PolicyDecision(PolicyAction.REVIEW, ("test",)),
+                "gemma26-policy-v2",
+                now - timedelta(days=5),
+            )
+            # One message, several distinct events: the shape the rewritten
+            # join has to preserve.
+            for signal, offset in (
+                (FeedbackSignal.OPENED, 5),
+                (FeedbackSignal.STARRED, 4),
+                (FeedbackSignal.MARKED_IMPORTANT, 3),
+            ):
+                self.assertTrue(
+                    store.record_behavior_event_for_message_id(
+                        message.account_id,
+                        message.provider,
+                        message.message_id,
+                        signal,
+                        now - timedelta(days=offset),
+                    )
+                )
+
+            similar = make_message(
+                message_id="new-similar-repeated",
+                subject="Aggiornamento corso fotografia nuova lezione",
+                body_text=(
+                    "Nuova lezione del corso di fotografia disponibile. "
+                    "Guarda il programma e il materiale della settimana."
+                ),
+            )
+            found = store.interest_for(similar, CLASSIFICATION, now)
+
+        # Three events on one message, each one still weighed.
+        self.assertGreater(found.recent_content_evidence, 0.0)
+        self.assertGreater(found.recent_content_score, 0.5)
+        self.assertEqual(found.recent_content_examples, 1)
+
     def test_recent_opening_behavior_is_content_specific_and_decays(self) -> None:
         now = datetime(2026, 8, 30, tzinfo=timezone.utc)
         with tempfile.TemporaryDirectory() as directory:

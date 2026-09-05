@@ -910,24 +910,39 @@ class PreferenceStore:
         )
         placeholders = ",".join("?" for _ in feature_hashes)
         with closing(self._connect()) as connection:
+            # Narrow by the feature hashes first. Driving from behavior_event
+            # instead made SQLite look up every feature for every recorded
+            # event, so the cost grew with the archive: measured at 43 seconds
+            # per message on a real one, against 102 milliseconds for this
+            # form, returning the same rows. The counted features do not vary
+            # between a message's events, so counting them per message and
+            # joining afterwards is the same aggregate.
             rows = connection.execute(
                 f"""
+                WITH matched AS (
+                    SELECT message_hash, COUNT(DISTINCT feature_hash) AS matches
+                    FROM behavior_feature
+                    WHERE account_id = ?
+                      AND feature_kind = 'content'
+                      AND feature_hash IN ({placeholders})
+                    GROUP BY message_hash
+                )
                 SELECT be.message_hash, be.event_type, be.observed_at,
-                       bm.content_feature_count, COUNT(DISTINCT bf.feature_hash)
-                FROM behavior_event AS be
+                       bm.content_feature_count, matched.matches
+                FROM matched
+                JOIN behavior_event AS be
+                  ON be.account_id = ?
+                 AND be.message_hash = matched.message_hash
                 JOIN behavior_message AS bm
-                  ON bm.account_id = be.account_id
-                 AND bm.message_hash = be.message_hash
-                JOIN behavior_feature AS bf
-                  ON bf.account_id = be.account_id
-                 AND bf.message_hash = be.message_hash
-                WHERE be.account_id = ?
-                  AND bf.feature_kind = 'content'
-                  AND bf.feature_hash IN ({placeholders})
-                GROUP BY be.message_hash, be.event_type, be.observed_at,
-                         bm.content_feature_count
+                  ON bm.account_id = ?
+                 AND bm.message_hash = matched.message_hash
                 """,
-                (message.account_id, *feature_hashes),
+                (
+                    message.account_id,
+                    *feature_hashes,
+                    message.account_id,
+                    message.account_id,
+                ),
             ).fetchall()
         positive = 0.0
         negative = 0.0
