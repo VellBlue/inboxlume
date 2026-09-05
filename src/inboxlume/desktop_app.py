@@ -89,6 +89,11 @@ from .process_launch import (
     terminate_process_tree,
 )
 from .diagnostics import diagnostic_path
+from .operation_lock import (
+    account_operation_lock_path,
+    account_progress_path,
+    operation_lock_holder,
+)
 from .runtime import (
     calibration_answer_counts,
     default_runtime_config_path,
@@ -1062,6 +1067,7 @@ class SettingsWindow(QMainWindow):
         # when a run reaches a terminal status, so watching it reacts to a run
         # that ended rather than to the writes made while one is going on.
         self._ledger_signature: tuple[str, int, int] | None = None
+        self._scheduled_run_was_running = False
         self._ledger_watch = QTimer(self)
         self._ledger_watch.setInterval(15_000)
         self._ledger_watch.timeout.connect(self._poll_finished_background_run)
@@ -1928,6 +1934,68 @@ class SettingsWindow(QMainWindow):
             minimum=DEFAULT_MINIMUM_CONCLUSIVE_REVIEWS,
         ))
 
+    def _scheduled_run_in_progress(self) -> bool:
+        """Say whether a run this window did not start is going on right now.
+
+        A scan started here reports through its own events, so the window can
+        show a progress bar for it. A scheduled run is another process and the
+        window learns nothing, which left the panel showing yesterday's totals
+        under the word "completed" while a run had been going for hours.
+        """
+
+        if self._process is not None or self.current_account_id is None:
+            return False
+        try:
+            account = self.settings.account(self.current_account_id)
+            lock = account_operation_lock_path(
+                self._state_db(account), account.account_id
+            )
+        except (KeyError, OSError, ValueError):
+            return False
+        return operation_lock_holder(lock) is not None
+
+    def _scheduled_run_progress(self) -> str:
+        """Read the counts a scheduled run publishes while it works."""
+
+        if self.current_account_id is None:
+            return ""
+        try:
+            account = self.settings.account(self.current_account_id)
+            path = account_progress_path(
+                self._state_db(account), account.account_id
+            )
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (KeyError, OSError, TypeError, ValueError):
+            return ""
+        if not isinstance(record, dict):
+            return ""
+        try:
+            processed = max(0, int(record.get("processed", 0)))
+            limit = max(0, int(record.get("limit", 0)))
+        except (TypeError, ValueError):
+            return ""
+        if limit <= 0:
+            return ""
+        return (
+            f"{self._operational_count(processed)}"
+            f"/{self._operational_count(limit)}"
+        )
+
+    def _scheduled_run_started_at(self) -> str:
+        """Report when the run began, from the lock the holder wrote at start."""
+
+        if self.current_account_id is None:
+            return "?"
+        try:
+            account = self.settings.account(self.current_account_id)
+            lock = account_operation_lock_path(
+                self._state_db(account), account.account_id
+            )
+            started = datetime.fromtimestamp(lock.stat().st_mtime)
+        except (KeyError, OSError, ValueError):
+            return "?"
+        return started.strftime("%H:%M")
+
     def _recorded_scan_profile(self, account: AccountSettings) -> str:
         """Name the model whose work this account's ledger actually holds.
 
@@ -1959,6 +2027,11 @@ class SettingsWindow(QMainWindow):
             # panel when it ends; reading the ledger underneath it would only
             # show a half-written picture.
             return
+        running = self._scheduled_run_in_progress()
+        if running or running != self._scheduled_run_was_running:
+            # While one is going on the counter has to advance, not only appear.
+            self._scheduled_run_was_running = running
+            self._refresh_schedule_status()
         signature = self._ledger_state()
         if signature is None or signature == self._ledger_signature:
             return
@@ -3359,6 +3432,26 @@ class SettingsWindow(QMainWindow):
                 schedule=self._schedule_description(account.schedule),
                 model=selected_model,
             ))
+            if self._scheduled_run_in_progress():
+                # Totals alone read as a finished run, and a scan that reaches
+                # the mailbox records nothing until its batch is classified, so
+                # a long run looked exactly like an idle one.
+                self.schedule_status.setObjectName("connectionPartial")
+                counted = self._scheduled_run_progress()
+                self.schedule_status.setText(
+                    self._(
+                        "A scheduled run is in progress · {counted} · started "
+                        "{started} · leave it to finish",
+                        counted=counted,
+                        started=self._scheduled_run_started_at(),
+                    )
+                    if counted
+                    else self._(
+                        "A scheduled run is in progress · started {started} · "
+                        "leave it to finish",
+                        started=self._scheduled_run_started_at(),
+                    )
+                )
         elif status.installed:
             self.schedule_status.setObjectName("connectionPartial")
             self.schedule_status.setText(self._(

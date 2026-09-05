@@ -4,6 +4,7 @@ import argparse
 import io
 import json
 import sys
+import time
 from argparse import Namespace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +21,7 @@ from .local_models import model_spec, scan_profile_for_model
 from .operation_lock import (
     AccountOperationLock,
     account_operation_lock_path,
+    account_progress_path,
 )
 from .runtime import (
     calibration_answer_counts,
@@ -35,6 +37,82 @@ from .settings import (
 
 
 ScheduledRunLock = AccountOperationLock
+
+
+class ProgressJournal(io.StringIO):
+    """Publish a scheduled run's aggregate progress for the window to read.
+
+    A scan started from the window streams its events to the window, which is
+    how the interactive counter is drawn. A scheduled run had nowhere to stream
+    to, so the app showed cumulative totals under the word "completed" while a
+    run had been going for hours, and there was no way to tell one state from
+    the other. Only counts and the phase name are published: the same aggregate
+    the diagnostics already keep, never a subject, sender or message id.
+    """
+
+    MINIMUM_INTERVAL_SECONDS = 1.0
+
+    def __init__(self, path: Path, *, clock: Callable[[], float] = time.monotonic):
+        super().__init__()
+        self.path = path
+        self._clock = clock
+        self._published_at: float | None = None
+        self._state: dict[str, Any] = {"phase": "startup", "processed": 0, "limit": 0}
+
+    def write(self, text: str) -> int:
+        for line in text.splitlines():
+            self._absorb(line)
+        return super().write(text)
+
+    def _absorb(self, line: str) -> None:
+        try:
+            event = json.loads(line)
+        except (TypeError, ValueError):
+            return
+        if not isinstance(event, Mapping):
+            return
+        kind = event.get("type")
+        if kind == "phase":
+            self._state["phase"] = str(event.get("phase", "unspecified"))
+        elif kind == "progress":
+            self._state["processed"] = int(event.get("processed", 0))
+            self._state["limit"] = int(event.get("limit", 0))
+        else:
+            return
+        self._publish(final=kind == "phase")
+
+    def _publish(self, *, final: bool) -> None:
+        now = self._clock()
+        if (
+            not final
+            and self._published_at is not None
+            and now - self._published_at < self.MINIMUM_INTERVAL_SECONDS
+        ):
+            # One file write per message would cost more than the work it
+            # reports on; a phase change is rare enough to always go out.
+            return
+        self._published_at = now
+        record = dict(self._state)
+        record["updated_at"] = datetime.now(timezone.utc).isoformat()
+        record["stored_plaintext"] = False
+        temporary = self.path.with_name(f"{self.path.name}.partial")
+        try:
+            self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            temporary.write_text(
+                json.dumps(record, ensure_ascii=False, separators=(",", ":")),
+                encoding="utf-8",
+            )
+            # A reader must never catch a half-written file.
+            temporary.replace(self.path)
+        except OSError:
+            # Progress reporting must never be able to fail a run.
+            pass
+
+    def clear(self) -> None:
+        try:
+            self.path.unlink()
+        except OSError:
+            pass
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -119,10 +197,15 @@ def run_scheduled_scan(
     # mailbox outcome actually reached instead of a default.
     if arguments_sink is not None:
         arguments_sink(arguments)
+    journal = ProgressJournal(account_progress_path(state_db, account.account_id))
     with ScheduledRunLock(lock_path):
-        # Per-message progress belongs in the interactive GUI, not journald or
-        # scheduled-task logs. The persisted diagnostic remains aggregate-only.
-        summary = executor(arguments, io.StringIO())
+        # Per-message detail still never reaches journald or a task log. The
+        # journal publishes only counts and the phase name, for the window to
+        # show while the run it did not start is going on.
+        try:
+            summary = executor(arguments, journal)
+        finally:
+            journal.clear()
     automatic = summary.get("automatic_quarantine")
     actions = automatic if isinstance(automatic, Mapping) else {}
     output_stream.write(

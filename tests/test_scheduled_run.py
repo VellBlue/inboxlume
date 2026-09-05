@@ -262,6 +262,47 @@ class ScheduledRunTests(unittest.TestCase):
         self.assertIn("started_at", json.loads(first))
         self.assertEqual(json.loads(last)["type"], "scheduled_run_error")
 
+    def test_a_running_scan_publishes_counts_for_the_window_to_read(self):
+        from inboxlume.scheduled_run import ProgressJournal
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run.progress.json"
+            ticks = iter([0.0, 10.0, 20.0, 30.0, 40.0])
+            journal = ProgressJournal(path, clock=lambda: next(ticks))
+
+            journal.write(
+                '{"type":"phase","phase":"classification","message":"x"}\n'
+            )
+            journal.write('{"type":"progress","processed":13,"limit":200}\n')
+            published = json.loads(path.read_text())
+
+            # This is what the window shows while a run it did not start works.
+            self.assertEqual(published["processed"], 13)
+            self.assertEqual(published["limit"], 200)
+            self.assertEqual(published["phase"], "classification")
+            self.assertFalse(published["stored_plaintext"])
+
+            journal.clear()
+            self.assertFalse(path.exists())
+
+    def test_the_journal_never_publishes_anything_from_a_message(self):
+        from inboxlume.scheduled_run import ProgressJournal
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run.progress.json"
+            journal = ProgressJournal(path, clock=lambda: 0.0)
+            journal.write('{"type":"phase","phase":"classification"}\n')
+            journal.write(
+                '{"type":"candidate","subject":"SYNTHETIC_SUBJECT",'
+                '"sender":"someone@example.com"}\n'
+            )
+
+            # A run publishes counts so it can be watched, and nothing else:
+            # the file sits outside the encrypted ledger.
+            written = path.read_text()
+            self.assertNotIn("SYNTHETIC_SUBJECT", written)
+            self.assertNotIn("example.com", written)
+
     def test_the_boundary_names_the_class_of_a_failure_it_will_not_quote(self):
         class SyntheticRefusal(ValueError):
             pass

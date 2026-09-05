@@ -13,6 +13,46 @@ def account_operation_lock_path(state_db: Path, account_id: str) -> Path:
     return state_db.parent / f".inboxlume-{identity}.operation.lock"
 
 
+def account_progress_path(state_db: Path, account_id: str) -> Path:
+    """Name the aggregate progress file beside this account's operation lock."""
+
+    lock = account_operation_lock_path(state_db, account_id)
+    return lock.with_suffix(".progress.json")
+
+
+def operation_lock_holder(path: Path) -> int | None:
+    """Name the live process holding this lock, reading nothing but the file.
+
+    The holder writes its pid into the lock, so a reader can answer "is a run
+    happening right now" without touching the lock itself. Probing the lock
+    instead would mean asking for it, and a scheduled run starting inside that
+    window would be told a run was already going and fail for nothing.
+
+    A pid can be reused after the owner dies, so this is a status signal and
+    never an authority: only the lock decides who may run.
+    """
+
+    try:
+        recorded = path.read_text(encoding="ascii").strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+    if not recorded.isdigit():
+        return None
+    holder = int(recorded)
+    if holder <= 0:
+        return None
+    try:
+        os.kill(holder, 0)
+    except ProcessLookupError:
+        return None
+    except PermissionError:
+        # Alive and owned by somebody else; not ours to report on.
+        return None
+    except OSError:
+        return None
+    return holder
+
+
 class AccountOperationLock:
     """Cross-process, crash-safe exclusive lock for one account operation."""
 

@@ -421,6 +421,8 @@ ITALIAN_UI: dict[str, str] = {
     "The scan did not complete. Permanent deletion is not available in InboxLume.": "Il controllo non è stato completato. L’eliminazione permanente non è disponibile in InboxLume.",
     "Warning: the provider automatically deletes messages from Trash after {retention}. InboxLume cannot empty it.": "Attenzione: il provider elimina automaticamente i messaggi dal Cestino dopo {retention}. InboxLume non può svuotarlo.",
     "Update the schedule too": "Aggiorna anche la pianificazione",
+    "A scheduled run is in progress · started {started} · leave it to finish": "Controllo pianificato in corso · iniziato alle {started} · lascialo finire",
+    "A scheduled run is in progress · {counted} · started {started} · leave it to finish": "Controllo pianificato in corso · {counted} · iniziato alle {started} · lascialo finire",
     "These changes affect an existing scheduled scan: {accounts}. Saving applies them to its next unattended run as well. Use Apply / update under Schedule to review destination and limits first.": "Queste modifiche riguardano un controllo già pianificato: {accounts}. Salvando, verranno usate anche alla prossima esecuzione automatica. Per rivedere prima destinazione e limiti, usa Applica / aggiorna nella sezione Pianificazione.",
     "Preferences not saved": "Preferenze non salvate",
     "Local task in progress": "Attività locale in corso",

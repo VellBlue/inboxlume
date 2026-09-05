@@ -661,6 +661,86 @@ class ScheduledAccountSaveTests(unittest.TestCase):
 
 
 @unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
+class ScheduledRunInProgressTests(unittest.TestCase):
+    """A run this window did not start still has to be visible in it."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_a_live_holder_is_reported_as_a_run_in_progress(self) -> None:
+        from inboxlume.desktop_app import SettingsWindow
+        from inboxlume.operation_lock import operation_lock_holder
+
+        with tempfile.TemporaryDirectory() as directory:
+            lock = Path(directory) / "account.operation.lock"
+            lock.write_text(f"{os.getpid()}\n")
+            self.assertEqual(operation_lock_holder(lock), os.getpid())
+
+            window = SettingsWindow()
+            window.current_account_id = "yahoo_test"
+            window._process = None
+            window._state_db = lambda account: Path(directory) / "state.sqlite3"
+            from inboxlume.settings import AccountSettings
+
+            account = AccountSettings("yahoo_test", ProviderKind.YAHOO)
+            with patch(
+                "inboxlume.desktop_app.account_operation_lock_path",
+                return_value=lock,
+            ), patch.object(window, "settings") as settings:
+                settings.account.return_value = account
+                self.assertTrue(window._scheduled_run_in_progress())
+
+    def test_the_window_shows_the_counter_a_scheduled_run_publishes(self) -> None:
+        import json as json_module
+
+        from inboxlume.desktop_app import SettingsWindow
+        from inboxlume.settings import AccountSettings
+
+        with tempfile.TemporaryDirectory() as directory:
+            progress = Path(directory) / "run.progress.json"
+            progress.write_text(
+                json_module.dumps(
+                    {"phase": "classification", "processed": 13, "limit": 200}
+                )
+            )
+            window = SettingsWindow()
+            window.current_account_id = "yahoo_test"
+            window._state_db = lambda account: Path(directory) / "state.sqlite3"
+            account = AccountSettings("yahoo_test", ProviderKind.YAHOO)
+            with patch(
+                "inboxlume.desktop_app.account_progress_path", return_value=progress
+            ), patch.object(window, "settings") as settings:
+                settings.account.return_value = account
+                settings.language = window.settings.language
+                # The same counter a manual scan draws, for a run started by
+                # the scheduler instead of by this window.
+                self.assertEqual(window._scheduled_run_progress(), "13/200")
+
+    def test_a_dead_holder_is_not_a_run(self) -> None:
+        from inboxlume.operation_lock import operation_lock_holder
+
+        with tempfile.TemporaryDirectory() as directory:
+            lock = Path(directory) / "account.operation.lock"
+            # A pid that cannot be running: the lock outlived its owner.
+            lock.write_text("999999999\n")
+            self.assertIsNone(operation_lock_holder(lock))
+            lock.write_text("not a pid\n")
+            self.assertIsNone(operation_lock_holder(lock))
+
+    def test_our_own_scan_is_left_to_report_itself(self) -> None:
+        from inboxlume.desktop_app import SettingsWindow
+
+        window = SettingsWindow()
+        window.current_account_id = "yahoo_test"
+        # A scan started here already draws a progress bar and phase text, so
+        # the schedule line must not claim an unattended run as well.
+        window._process = object()
+        self.assertFalse(window._scheduled_run_in_progress())
+
+
+@unittest.skipUnless(PYSIDE_AVAILABLE, "PySide6 non disponibile")
 class LedgerScopeTests(unittest.TestCase):
     """The panels report recorded work, so the account decides what they read."""
 
